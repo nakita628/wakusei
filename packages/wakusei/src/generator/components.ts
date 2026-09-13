@@ -1,4 +1,9 @@
-import type { ComponentAdapter, ComponentCodeOptions, Components } from 'oas-truth'
+import type {
+  ComponentAdapter,
+  ComponentCodeOptions,
+  ComponentDeclaration,
+  Components,
+} from 'oas-truth'
 import {
   makeCallbacksDeclarations,
   makeExamplesDeclarations,
@@ -34,7 +39,7 @@ const BUILDERS: {
     components: Components,
     adapter: ComponentAdapter,
     options: ComponentCodeOptions,
-  ) => readonly { readonly code: string }[]
+  ) => readonly ComponentDeclaration[]
 } = {
   responses: (c, a, o) => makeResponsesDeclarations(c, a, o),
   parameters: (c, a, o) => makeParametersDeclarations(c, a, o),
@@ -54,7 +59,7 @@ const BUILDERS: {
  * through the collision map, so they name the declared identifier. Empty when the document
  * declares none.
  */
-export function makeComponentCode(
+export function makeComponentDeclarations(
   kind: ComponentKind,
   components: Components,
   adapter: ComponentAdapter,
@@ -69,6 +74,21 @@ export function makeComponentCode(
     ...options,
     identifiers: makeSchemaIdentifiers(components.schemas ?? {}),
   })
+}
+
+/** The joined source of {@link makeComponentDeclarations}, empty when the document declares none. */
+export function makeComponentCode(
+  kind: ComponentKind,
+  components: Components,
+  adapter: ComponentAdapter,
+  options: {
+    /** `as const` on the generated objects. */
+    readonly readonly: boolean
+    /** `export type` next to each parameter / header / media type schema. */
+    readonly exportTypes: boolean
+  },
+) {
+  return makeComponentDeclarations(kind, components, adapter, options)
     .map((declaration) => declaration.code)
     .join('\n\n')
 }

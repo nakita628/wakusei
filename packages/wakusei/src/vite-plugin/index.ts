@@ -98,7 +98,7 @@ function removeQuietly(target: string, recursive = false) {
   })
 }
 
-/** Deletes the `.ts` files directly inside the split schemas directory before it is regenerated. */
+/** Deletes the `.ts` files directly inside a split component directory before it is regenerated. */
 function cleanupSplitDir(directory: string) {
   return Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem
@@ -114,12 +114,12 @@ function cleanupSplitDir(directory: string) {
       { concurrency: 'unbounded' },
     )
     const count = removed.filter(Boolean).length
-    return count > 0 ? `🧹 schemas: cleaned ${String(count)} files` : undefined
+    return count > 0 ? `🧹 ${path.basename(directory)}: cleaned ${String(count)} files` : undefined
   })
 }
 
 /**
- * The fully generated outputs: the component modules (the split schemas directory as a
+ * The fully generated outputs: the component modules (a split directory as a
  * whole), the contract, or the single file. Handler directories are left out: they hold
  * hand-written handler bodies, and the generator already removes the files no route maps to.
  */
@@ -155,7 +155,7 @@ function cleanupStaleOutputs(previousConfig: Config, currentConfig: Config) {
 }
 
 /**
- * Empties the split schemas directory so a schema the spec no longer names does not
+ * Empties each split component directory so an entry the spec no longer names does not
  * survive, then runs the generator. Handler directories are not emptied: the handler
  * bodies in them survive only through the merge with the existing files. A failure is
  * reported as a log line rather than raised, so the dev server keeps running.
@@ -163,13 +163,17 @@ function cleanupStaleOutputs(previousConfig: Config, currentConfig: Config) {
 function runGeneration(config: Config) {
   return Effect.gen(function* () {
     const layout = config.output.endsWith('.ts') ? undefined : resolveLayout(config)
-    const cleaned =
-      layout && !layout.aggregate && layout.schemas.split
-        ? yield* cleanupSplitDir(layout.schemas.file)
-        : undefined
+    const splitDirectories =
+      layout === undefined || layout.aggregate
+        ? []
+        : [
+            ...(layout.schemas.split ? [layout.schemas.file] : []),
+            ...layout.components.filter((target) => target.split).map((target) => target.file),
+          ]
+    const cleaned = yield* Effect.forEach(splitDirectories, cleanupSplitDir)
     const result = yield* Effect.result(orpc(config))
     return [
-      ...(cleaned === undefined ? [] : [cleaned]),
+      ...cleaned.filter((line) => line !== undefined),
       Result.isSuccess(result)
         ? '✅ wakusei: generated successfully'
         : `❌ wakusei: ${result.failure.message}`,

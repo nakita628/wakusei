@@ -266,6 +266,31 @@ export const getPosts = os.route({ method: 'GET', path: '/posts' }).handler(asyn
     expect(log.mock.calls[1]).toStrictEqual(['🧹 schemas: cleaned 1 files'])
   })
 
+  it('empties a split kind directory before regenerating it', async () => {
+    const log = vi.spyOn(console, 'log').mockImplementation(() => undefined)
+    fs.writeFileSync(
+      'openapi.yaml',
+      `${SPEC}
+  responses:
+    NotFound: { description: Not Found }
+`,
+    )
+    fs.mkdirSync('src/responses', { recursive: true })
+    fs.writeFileSync('src/responses/removed.ts', 'export const RemovedResponse = {}\n')
+    const plugin = wakuseiVite()
+    const { server, sentMessages } = createMockServer({
+      ...base,
+      components: { responses: { output: 'src/responses', split: true } },
+    })
+    plugin.configureServer(server)
+
+    await eventually(() => {
+      expect(sentMessages).toHaveLength(1)
+    })
+    expect(fs.readdirSync('src/responses').sort()).toStrictEqual(['index.ts', 'notFound.ts'])
+    expect(log.mock.calls[1]).toStrictEqual(['🧹 responses: cleaned 1 files'])
+  })
+
   it('removes outputs the edited config no longer names', async () => {
     const log = vi.spyOn(console, 'log').mockImplementation(() => undefined)
     const plugin = wakuseiVite()

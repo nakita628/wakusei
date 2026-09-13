@@ -48,7 +48,14 @@ describe('resolveLayout', () => {
     expect([layout.aggregate, layout.schemas.file, layout.components]).toStrictEqual([
       false,
       out('src/components/schemas.ts'),
-      [{ kind: 'headers', file: out('src/components/headers.ts'), import: undefined }],
+      [
+        {
+          kind: 'headers',
+          split: false,
+          file: out('src/components/headers.ts'),
+          import: undefined,
+        },
+      ],
     ])
   })
 
@@ -61,7 +68,7 @@ describe('resolveLayout', () => {
     expect([layout.aggregate, layout.schemas.file, layout.components]).toStrictEqual([
       true,
       out('src/api.ts'),
-      [{ kind: 'links', file: out('src/api.ts'), import: undefined }],
+      [{ kind: 'links', split: false, file: out('src/api.ts'), import: undefined }],
     ])
   })
 
@@ -75,7 +82,36 @@ describe('resolveLayout', () => {
     })
     expect([layout.schemas, layout.components]).toStrictEqual([
       { file: out('src/schemas'), split: true, import: '@/schemas' },
-      [{ kind: 'callbacks', file: out('src/callbacks/index.ts'), import: '#s' }],
+      [{ kind: 'callbacks', split: false, file: out('src/callbacks/index.ts'), import: '#s' }],
+    ])
+  })
+
+  it('reads a split kind as a directory', () => {
+    const layout = resolveLayout({
+      ...base,
+      components: { responses: { output: 'src/responses', split: true } },
+    })
+    expect([layout.aggregate, layout.components]).toStrictEqual([
+      false,
+      [{ kind: 'responses', split: true, file: out('src/responses'), import: undefined }],
+    ])
+  })
+
+  it('reads each kind split independently of schemas.split', () => {
+    const layout = resolveLayout({
+      ...base,
+      components: {
+        schemas: { output: 'src/schemas', split: true },
+        responses: { output: 'src/responses', split: true },
+        callbacks: { output: 'src/callbacks' },
+      },
+    })
+    expect([layout.schemas, layout.components]).toStrictEqual([
+      { file: out('src/schemas'), split: true, import: undefined },
+      [
+        { kind: 'responses', split: true, file: out('src/responses'), import: undefined },
+        { kind: 'callbacks', split: false, file: out('src/callbacks/index.ts'), import: undefined },
+      ],
     ])
   })
 

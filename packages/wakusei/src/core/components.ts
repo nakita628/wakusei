@@ -6,12 +6,13 @@ import { makeAdapter } from 'oas-truth'
 
 import { emitFiles } from '../emit/index.js'
 import type { ComponentKind } from '../generator/components.js'
-import { makeComponentCode } from '../generator/components.js'
+import { makeComponentCode, makeComponentDeclarations } from '../generator/components.js'
 import { makeSchemaDeclarations } from '../generator/schemas.js'
+import type { ImportEntry } from '../helper/imports.js'
 import { withImports } from '../helper/imports.js'
 import { makeLibraryImports } from '../helper/library.js'
 import type { Layout, WakuseiConfig } from './layout.js'
-import { makeSchemasSpecifier } from './layout.js'
+import { kindExportTypes, makeSchemasSpecifier, schemasExportTypes } from './layout.js'
 
 type File = { readonly path: string; readonly code: string }
 
@@ -20,6 +21,24 @@ function makeBarrel(names: readonly string[]) {
     .toSorted()
     .map((name) => `export*from'./${name}'`)
     .join('\n')
+}
+
+function writeSplitFiles(
+  directory: string,
+  declarations: readonly { readonly fileName: string; readonly code: string }[],
+  imports: readonly ImportEntry[],
+): readonly File[] {
+  if (declarations.length === 0) return []
+  return [
+    ...declarations.map((declaration) => ({
+      path: path.join(directory, `${declaration.fileName}.ts`),
+      code: withImports(declaration.code, imports),
+    })),
+    {
+      path: path.join(directory, 'index.ts'),
+      code: makeBarrel(declarations.map((declaration) => declaration.fileName)),
+    },
+  ]
 }
 
 /**
@@ -38,29 +57,28 @@ function makeComponentsBarrel(modules: readonly string[]): readonly File[] {
 /**
  * `components.schemas` and every other enabled kind through oas-truth's builders.
  * Aggregate: one module holds them all. Individual: the schemas
- * (one module, or one file per schema when split) and one file per kind, which imports
- * the schemas it references.
+ * (one module, or one file per schema when split) and one file per kind — or one
+ * file per entry when that kind's `split` is on — which import the schemas they
+ * reference.
  */
 export function writeComponents(openapi: OpenAPI, config: WakuseiConfig, layout: Layout) {
   const components = openapi.components ?? {}
   const adapter = makeAdapter(config.schema)
   const libraryImports = makeLibraryImports(config.schema)
   const declarations = makeSchemaDeclarations(components.schemas ?? {}, config.schema, {
-    exportTypes: config.exportSchemasTypes,
+    exportTypes: schemasExportTypes(config),
   })
-  const kindCode = (kind: ComponentKind) =>
-    makeComponentCode(kind, components, adapter, {
-      readonly: config.readonly,
-      exportTypes:
-        (kind === 'parameters' && config.exportParametersTypes) ||
-        (kind === 'headers' && config.exportHeadersTypes) ||
-        (kind === 'mediaTypes' && config.exportMediaTypesTypes),
-    })
+  const kindOptions = (kind: ComponentKind) => ({
+    readonly: config.readonly,
+    exportTypes: kindExportTypes(kind, config),
+  })
 
   if (layout.aggregate) {
     const parts = [
       ...declarations.map((d) => d.code),
-      ...layout.components.map((target) => kindCode(target.kind)),
+      ...layout.components.map((target) =>
+        makeComponentCode(target.kind, components, adapter, kindOptions(target.kind)),
+      ),
     ].filter((part) => part !== '')
     if (parts.length === 0) return Effect.void
     return emitFiles([
@@ -69,22 +87,10 @@ export function writeComponents(openapi: OpenAPI, config: WakuseiConfig, layout:
   }
 
   const schemaFiles: readonly File[] = layout.schemas.split
-    ? declarations.length === 0
-      ? []
-      : [
-          ...declarations.map((d) => ({
-            path: path.join(layout.schemas.file, `${d.fileName}.ts`),
-            // Split schema files import each other by file name.
-            code: withImports(d.code, [
-              ...libraryImports,
-              ...declarations.map((peer) => ({ name: peer.varName, from: `./${peer.fileName}` })),
-            ]),
-          })),
-          {
-            path: path.join(layout.schemas.file, 'index.ts'),
-            code: makeBarrel(declarations.map((d) => d.fileName)),
-          },
-        ]
+    ? writeSplitFiles(layout.schemas.file, declarations, [
+        ...libraryImports,
+        ...declarations.map((peer) => ({ name: peer.varName, from: `./${peer.fileName}` })),
+      ])
     : declarations.length === 0
       ? []
       : [
@@ -93,22 +99,39 @@ export function writeComponents(openapi: OpenAPI, config: WakuseiConfig, layout:
             code: withImports(declarations.map((d) => d.code).join('\n\n'), libraryImports),
           },
         ]
-  // Two kinds configured into one file share it.
-  const componentFiles = [...Map.groupBy(layout.components, (target) => target.file)].flatMap(
-    ([file, targets]) => {
-      const code = targets
-        .map((target) => kindCode(target.kind))
-        .filter((part) => part !== '')
-        .join('\n\n')
-      if (code === '') return []
-      const from = makeSchemasSpecifier(layout, path.dirname(file), targets[0]?.import)
+  const splitFiles = layout.components
+    .filter((target) => target.split)
+    .flatMap((target) => {
+      const from = makeSchemasSpecifier(layout, target.file, target.import)
       const schemaImports = declarations.map((d) => ({ name: d.varName, from }))
-      return [{ path: file, code: withImports(code, [...libraryImports, ...schemaImports]) }]
-    },
-  )
+      return writeSplitFiles(
+        target.file,
+        makeComponentDeclarations(target.kind, components, adapter, kindOptions(target.kind)),
+        [...libraryImports, ...schemaImports],
+      )
+    })
+  // Two kinds configured into one file share it.
+  const componentFiles = [
+    ...Map.groupBy(
+      layout.components.filter((target) => !target.split),
+      (target) => target.file,
+    ),
+  ].flatMap(([file, targets]) => {
+    const code = targets
+      .map((target) =>
+        makeComponentCode(target.kind, components, adapter, kindOptions(target.kind)),
+      )
+      .filter((part) => part !== '')
+      .join('\n\n')
+    if (code === '') return []
+    const from = makeSchemasSpecifier(layout, path.dirname(file), targets[0]?.import)
+    const schemaImports = declarations.map((d) => ({ name: d.varName, from }))
+    return [{ path: file, code: withImports(code, [...libraryImports, ...schemaImports]) }]
+  })
   const schemasModule = schemaFiles.length > 0 ? [layout.schemas.file] : []
   return emitFiles([
     ...schemaFiles,
+    ...splitFiles,
     ...componentFiles,
     ...makeComponentsBarrel([...schemasModule, ...componentFiles.map((file) => file.path)]),
   ])

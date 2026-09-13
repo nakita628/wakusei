@@ -19,7 +19,7 @@ import type { OperationInfo } from '../helper/operations.js'
 import { makeOperationGroups, makeOperations } from '../helper/operations.js'
 import { mergeProcedureFile } from '../merge/index.js'
 import type { Layout, WakuseiConfig } from './layout.js'
-import { makeRelativeSpecifier, makeSchemasSpecifier } from './layout.js'
+import { makeRelativeSpecifier, makeSchemasSpecifier, schemasExportTypes } from './layout.js'
 
 function makeContext(openapi: OpenAPI, config: WakuseiConfig) {
   const schemas = openapi.components?.schemas
@@ -149,7 +149,7 @@ export function writeSingleFile(openapi: OpenAPI, config: WakuseiConfig, file: s
   const operations = makeOperations(openapi)
   const parts = [
     ...makeSchemaDeclarations(openapi.components?.schemas ?? {}, config.schema, {
-      exportTypes: config.exportSchemasTypes,
+      exportTypes: schemasExportTypes(config),
     }).map((d) => d.code),
     config.mode === 'server'
       ? makeServerProcedures(operations, context)

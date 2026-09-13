@@ -623,6 +623,89 @@ export type PetJsonMediaTypeSchema = z.infer<typeof PetJsonMediaTypeSchema>
       "import { CreatePostSchema, PostSchema } from '@/schemas'",
     )
   })
+
+  it('writes one file per entry when a kind is split', async () => {
+    await generate({
+      input: 'responses.yaml',
+      components: {
+        responses: { output: 'src/responses', split: true },
+        parameters: { output: 'src/parameters', split: true, exportTypes: true },
+      },
+    })
+    expect(listFiles('src')).toStrictEqual([
+      'components/schemas.ts',
+      'handlers/index.ts',
+      'handlers/posts.ts',
+      'parameters/index.ts',
+      'parameters/limit.ts',
+      'responses/index.ts',
+      'responses/notFound.ts',
+    ])
+    expect(read('src/responses/index.ts')).toBe("export * from './notFound'\n")
+    expect(read('src/responses/notFound.ts'))
+      .toBe(`import { ErrorResponseSchema } from '../components/schemas'
+
+export const NotFoundResponse = {
+  description: 'Not Found',
+  content: { 'application/json': { schema: ErrorResponseSchema } },
+}
+`)
+    expect(read('src/parameters/limit.ts')).toBe(`import * as z from 'zod'
+
+export const LimitParamsSchema = z.coerce.number().int()
+
+export type LimitParamsSchema = z.infer<typeof LimitParamsSchema>
+`)
+  })
+
+  it('splits each kind independently of schemas.split', async () => {
+    await generate({
+      input: 'responses.yaml',
+      components: {
+        schemas: { output: 'src/schemas', split: true },
+        responses: { output: 'src/responses', split: true },
+        parameters: { output: 'src/parameters.ts' },
+      },
+    })
+    expect(listFiles('src')).toStrictEqual([
+      'handlers/index.ts',
+      'handlers/posts.ts',
+      'parameters.ts',
+      'responses/index.ts',
+      'responses/notFound.ts',
+      'schemas/errorResponse.ts',
+      'schemas/index.ts',
+      'schemas/post.ts',
+    ])
+    expect(read('src/responses/notFound.ts')).toBe(`import { ErrorResponseSchema } from '../schemas'
+
+export const NotFoundResponse = {
+  description: 'Not Found',
+  content: { 'application/json': { schema: ErrorResponseSchema } },
+}
+`)
+    expect(read('src/parameters.ts')).toBe(`import * as z from 'zod'
+
+export const LimitParamsSchema = z.coerce.number().int()
+`)
+  })
+
+  it('honors components.schemas.exportTypes when the top-level flag is off', async () => {
+    await generate({
+      exportSchemasTypes: false,
+      components: { schemas: { output: 'src/schemas.ts', exportTypes: true } },
+    })
+    expect(read('src/schemas.ts')).toBe(`import * as z from 'zod'
+
+export const PostSchema = z.object({ id: z.int().min(1), title: z.string() })
+
+export type PostSchema = z.infer<typeof PostSchema>
+
+export const CreatePostSchema = z.object({ title: z.string() })
+
+export type CreatePostSchema = z.infer<typeof CreatePostSchema>
+`)
+  })
 })
 
 describe('merge', () => {

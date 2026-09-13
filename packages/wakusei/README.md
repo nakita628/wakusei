@@ -228,53 +228,65 @@ export default defineConfig({
   exportMediaTypes: true, // generate components.mediaTypes
   exportMediaTypesTypes: true, // export type for each media type schema
 
-  // Where components go. A kind configured here is generated even without
-  // its flag. output (one aggregate .ts file) is mutually exclusive with
-  // the per-type fields. schemas.output defaults to src/components/index.ts
-  // when nothing else is generated, src/components/schemas.ts otherwise,
-  // or a directory when split is true.
+  // `output` (single file) and the per-type fields below are mutually exclusive.
+  // `exportTypes` applies only to schemas / parameters / headers / mediaTypes.
+  // `split: true` writes one file per entry into a directory.
   components: {
     // output: 'src/components/index.ts',
     schemas: {
       output: 'src/schemas',
+      exportTypes: true,
       split: true,
       import: '@/schemas',
     },
     responses: {
-      output: 'src/components/responses.ts',
+      output: 'src/responses',
+      split: true,
       import: '@/schemas',
     },
     parameters: {
-      output: 'src/components/parameters.ts',
-      import: '@/schemas',
-    },
-    headers: {
-      output: 'src/components/headers.ts',
+      output: 'src/parameters',
+      exportTypes: true,
+      split: true,
       import: '@/schemas',
     },
     examples: {
-      output: 'src/components/examples.ts',
+      output: 'src/examples',
+      split: true,
     },
     requestBodies: {
-      output: 'src/components/request-bodies.ts',
+      output: 'src/requestBodies',
+      split: true,
+      import: '@/schemas',
+    },
+    headers: {
+      output: 'src/headers',
+      exportTypes: true,
+      split: true,
       import: '@/schemas',
     },
     securitySchemes: {
-      output: 'src/components/security-schemes.ts',
+      output: 'src/securitySchemes',
+      split: true,
     },
     links: {
-      output: 'src/components/links.ts',
+      output: 'src/links',
+      split: true,
     },
     callbacks: {
-      output: 'src/components/callbacks.ts',
+      output: 'src/callbacks',
+      split: true,
       import: '@/schemas',
     },
     pathItems: {
-      output: 'src/components/path-items.ts',
+      output: 'src/pathItems',
+      split: true,
       import: '@/schemas',
     },
     mediaTypes: {
-      output: 'src/components/media-types.ts',
+      output: 'src/mediaTypes',
+      exportTypes: true,
+      split: true,
       import: '@/schemas',
     },
   },

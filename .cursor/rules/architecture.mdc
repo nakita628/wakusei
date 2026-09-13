@@ -44,7 +44,7 @@ and to the code second.
 | `generator/` | pure code builders: `schemas.ts` (oas-truth's `makeSchemaDeclarations` with wakusei's type naming), `components.ts` (oas-truth's `make*Declarations`), `procedures.ts` (route / input / output chains, server procedures, the contract, `implement` stubs) | touch the filesystem, run an Effect |
 | `core/` | orchestration: `index.ts` (`orpc()`), `layout.ts` (config → paths and import specifiers), `components.ts`, `procedures.ts` | assemble code strings (`make*Code` lives in `generator`) |
 | `cli/` | the `wakusei` command on `effect/unstable/cli`; `watch.ts` is the config pass and the `--watch` loop | generator logic |
-| `vite-plugin/` | `wakuseiVite()`: reload the config, regenerate on change, clean the split schemas directory and stale outputs | generator logic |
+| `vite-plugin/` | `wakuseiVite()`: reload the config, regenerate on change, clean split component directories and stale outputs | generator logic |
 | `testing/` | `runGenerator` / `runGeneratorError` | ship in `dist` |
 
 ## One pipeline
@@ -55,7 +55,7 @@ the first failure: `parseOpenAPI`, then either `writeSingleFile` (when `output` 
 or `resolveLayout` → `writeComponents` → `writeServer` (server mode) / `writeContract` (contract
 mode). Each `write*` returns an Effect. Anything that changes what gets generated belongs in
 `orpc()` or below, so the two entry points cannot disagree. What only the plugin does (config
-reload, cleaning the split schemas directory and stale outputs) says why in its own comment.
+reload, cleaning split component directories and stale outputs) says why in its own comment.
 
 ## What the generator emits
 
@@ -71,7 +71,9 @@ reload, cleaning the split schemas directory and stale outputs) says why in its 
 - Components: without per-kind config, flags or `split`, the schemas and every flagged kind share
   one module (`components.output`, `components.schemas.output` or `src/components/index.ts`).
   Otherwise the schemas get their own module and each kind that is flagged or configured gets its
-  file, with an `index.ts` barrel when they share a directory.
+  file — or one file per entry when that kind's `split` is on — with an `index.ts` barrel when
+  they share a directory. `exportTypes` on `schemas` / `parameters` / `headers` / `mediaTypes`
+  (or the matching top-level `export*Types` flag) adds the inferred type alias.
 
 ## Output that holds the user's code
 

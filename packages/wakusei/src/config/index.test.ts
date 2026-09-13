@@ -84,11 +84,16 @@ describe('parseConfig', () => {
       exportParametersTypes: true,
       exportMediaTypes: true,
       components: {
-        schemas: { output: 'src/schemas', split: true, import: '@/schemas' },
-        responses: { output: 'src/components/responses.ts', import: '@/schemas' },
-        parameters: { output: 'src/components/parameters.ts', import: '~/schemas' },
-        callbacks: { output: 'src/components/callbacks.ts' },
-        mediaTypes: { output: 'src/components/media.ts' },
+        schemas: { output: 'src/schemas', split: true, import: '@/schemas', exportTypes: true },
+        responses: { output: 'src/components/responses.ts', import: '@/schemas', split: false },
+        parameters: {
+          output: 'src/components/parameters.ts',
+          import: '~/schemas',
+          split: false,
+          exportTypes: true,
+        },
+        callbacks: { output: 'src/components/callbacks.ts', split: false },
+        mediaTypes: { output: 'src/components/media.ts', split: false, exportTypes: false },
       },
     }
     expect(await parse(config)).toStrictEqual({ ...defaults, ...config })
@@ -121,20 +126,40 @@ describe('parseConfig', () => {
       exportMediaTypes: true,
       exportMediaTypesTypes: true,
       components: {
-        schemas: { output: 'src/schemas', split: true, import: '@/schemas' },
-        responses: { output: 'src/components/responses.ts', import: '@/schemas' },
-        parameters: { output: 'src/components/parameters.ts', import: '@/schemas' },
-        headers: { output: 'src/components/headers.ts', import: '@/schemas' },
-        examples: { output: 'src/components/examples.ts' },
-        requestBodies: { output: 'src/components/request-bodies.ts', import: '@/schemas' },
-        securitySchemes: { output: 'src/components/security-schemes.ts' },
-        links: { output: 'src/components/links.ts' },
-        callbacks: { output: 'src/components/callbacks.ts', import: '@/schemas' },
-        pathItems: { output: 'src/components/path-items.ts', import: '@/schemas' },
-        mediaTypes: { output: 'src/components/media-types.ts', import: '@/schemas' },
+        schemas: { output: 'src/schemas', exportTypes: true, split: true, import: '@/schemas' },
+        responses: { output: 'src/responses', split: true, import: '@/schemas' },
+        parameters: {
+          output: 'src/parameters',
+          exportTypes: true,
+          split: true,
+          import: '@/schemas',
+        },
+        headers: { output: 'src/headers', exportTypes: true, split: true, import: '@/schemas' },
+        examples: { output: 'src/examples', split: true },
+        requestBodies: { output: 'src/requestBodies', split: true, import: '@/schemas' },
+        securitySchemes: { output: 'src/securitySchemes', split: true },
+        links: { output: 'src/links', split: true },
+        callbacks: { output: 'src/callbacks', split: true, import: '@/schemas' },
+        pathItems: { output: 'src/pathItems', split: true, import: '@/schemas' },
+        mediaTypes: {
+          output: 'src/mediaTypes',
+          exportTypes: true,
+          split: true,
+          import: '@/schemas',
+        },
       },
     } as const
     expect(await parse(config)).toStrictEqual({ ...defaults, ...config })
+  })
+
+  it('fills split and exportTypes on a per-type component', async () => {
+    expect(
+      await parse({ ...base, components: { schemas: { output: 'src/schemas.ts' } } }),
+    ).toStrictEqual({
+      ...base,
+      ...defaults,
+      components: { schemas: { output: 'src/schemas.ts', split: false, exportTypes: false } },
+    })
   })
 
   it('accepts components.output alone', async () => {
@@ -147,7 +172,9 @@ describe('parseConfig', () => {
     async (value) => {
       const config = {
         ...base,
-        components: { schemas: { output: 'src/schemas.ts', import: value } },
+        components: {
+          schemas: { output: 'src/schemas.ts', import: value, split: false, exportTypes: false },
+        },
       }
       expect(await parse(config)).toStrictEqual({ ...config, ...defaults })
     },
@@ -182,6 +209,16 @@ describe('parseConfig', () => {
       'schema: Expected "zod" | "valibot" | "arktype"',
     ],
     ['template in server mode', { ...base, template: {} }, 'template: Expected no excess property'],
+    [
+      'split: true with a .ts file',
+      { ...base, components: { responses: { output: 'src/x.ts', split: true } } },
+      'components.responses.output: split mode requires directory, not .ts file',
+    ],
+    [
+      'exportTypes on responses',
+      { ...base, components: { responses: { output: 'src/r.ts', exportTypes: true } } },
+      'components.responses.exportTypes: Expected no excess property',
+    ],
     [
       'a .ts template.output',
       { ...base, mode: 'contract', template: { output: 'src/x.ts' } },

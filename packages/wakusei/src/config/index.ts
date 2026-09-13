@@ -94,13 +94,71 @@ function exportFlag(description: string) {
   return FlagSchema.annotate({ description })
 }
 
-const ComponentSchema = Schema.Struct({
-  output: Schema.NonEmptyString.annotate({
-    title: 'Component output',
-    description: 'File or directory for this Components kind.',
-    examples: ['src/components/responses.ts'],
-  }),
+/**
+ * Every per-type output is the same two-branch union: `split: true` writes one file
+ * per entry into a directory, anything else writes a single file.
+ *
+ * `Schema.Union` resolves members in order and each member pins `split` to a literal, so
+ * a member is only reachable through its own discriminant — the failure reported is the
+ * one inside the matching branch, not a union-wide "no member matched".
+ */
+function splitUnion<Shared extends Schema.Struct.Fields>(shared: Shared) {
+  return Schema.Union([
+    Schema.Struct({
+      split: Schema.Literal(true).annotate({
+        description: 'Write one file per entry into `output`.',
+      }),
+      output: Schema.String.check(
+        Schema.isPattern(/^(?!.*\.ts$).+/u, {
+          message: 'split mode requires directory, not .ts file',
+        }),
+      ).annotate({
+        title: 'Output directory',
+        description:
+          'Directory that receives one file per generated entry. Never a `.ts` file path.',
+        examples: ['src/schemas', 'src/components/responses'],
+      }),
+      ...shared,
+    }),
+    Schema.Struct({
+      split: Schema.Literal(false)
+        .pipe(Schema.withDecodingDefaultKey(Effect.succeed(false)))
+        .annotate({ description: 'Write every entry into a single file (default).' }),
+      output: Schema.NonEmptyString.annotate({
+        title: 'Component output',
+        description: 'File or directory for this Components kind. A directory becomes `index.ts`.',
+        examples: ['src/components/responses.ts', 'src/responses'],
+      }),
+      ...shared,
+    }),
+  ])
+}
+
+const OutputSchema = splitUnion({
   import: Schema.optionalKey(ImportSchema),
+}).annotate({
+  title: 'Generated output target',
+  description:
+    'Where one group of generated code is written. `split` picks directory mode or single-file mode.',
+  examples: [
+    { split: false, output: 'src/responses.ts' },
+    { split: true, output: 'src/responses', import: '@/schemas' },
+  ],
+})
+
+const ExportTypesOutputSchema = splitUnion({
+  import: Schema.optionalKey(ImportSchema),
+  exportTypes: FlagSchema.annotate({
+    description: 'Also export the TypeScript type inferred from each generated schema.',
+  }),
+}).annotate({
+  title: 'Generated output target with type exports',
+  description:
+    'Same as a generated output target, plus `exportTypes` for schemas, parameters, headers and mediaTypes.',
+  examples: [
+    { split: false, output: 'src/schemas.ts', exportTypes: true },
+    { split: true, output: 'src/schemas', import: '@/schemas', exportTypes: true },
+  ],
 })
 
 const ComponentsSchema = Schema.Struct({
@@ -112,40 +170,46 @@ const ComponentsSchema = Schema.Struct({
       examples: ['src/components/index.ts'],
     }),
   ),
-  schemas: Schema.optionalKey(
-    Schema.Struct({
-      ...ComponentSchema.fields,
-      split: Schema.optionalKey(
-        Schema.Boolean.annotate({
-          description: 'Write one file per schema under `output`.',
-        }),
-      ),
-    }).annotate({
-      title: 'Schemas output',
-      description: 'Where `components.schemas` are written.',
-    }),
-  ),
-  responses: Schema.optionalKey(ComponentSchema),
-  parameters: Schema.optionalKey(ComponentSchema),
-  headers: Schema.optionalKey(ComponentSchema),
-  examples: Schema.optionalKey(ComponentSchema),
-  requestBodies: Schema.optionalKey(ComponentSchema),
-  securitySchemes: Schema.optionalKey(ComponentSchema),
-  links: Schema.optionalKey(ComponentSchema),
-  callbacks: Schema.optionalKey(ComponentSchema),
-  pathItems: Schema.optionalKey(ComponentSchema),
-  mediaTypes: Schema.optionalKey(ComponentSchema),
-}).check(
-  Schema.makeFilter(
-    (components) =>
-      components.output === undefined ||
-      COMPONENT_KINDS.every((kind) => components[kind] === undefined),
-    {
-      message:
-        'components.output is mutually exclusive with per-type component outputs (schemas, responses, parameters, ...). Use output for single-file mode, or per-type fields for split mode.',
-    },
-  ),
-)
+  schemas: Schema.optionalKey(ExportTypesOutputSchema),
+  responses: Schema.optionalKey(OutputSchema),
+  parameters: Schema.optionalKey(ExportTypesOutputSchema),
+  examples: Schema.optionalKey(OutputSchema),
+  requestBodies: Schema.optionalKey(OutputSchema),
+  headers: Schema.optionalKey(ExportTypesOutputSchema),
+  securitySchemes: Schema.optionalKey(OutputSchema),
+  links: Schema.optionalKey(OutputSchema),
+  callbacks: Schema.optionalKey(OutputSchema),
+  pathItems: Schema.optionalKey(OutputSchema),
+  mediaTypes: Schema.optionalKey(ExportTypesOutputSchema),
+})
+  .check(
+    Schema.makeFilter(
+      (components) =>
+        components.output === undefined ||
+        COMPONENT_KINDS.every((kind) => components[kind] === undefined),
+      {
+        message:
+          'components.output is mutually exclusive with per-type component outputs (schemas, responses, parameters, ...). Use output for single-file mode, or per-type fields for split mode.',
+      },
+    ),
+  )
+  .annotate({
+    title: 'Components output',
+    description:
+      'Destination for `components`. Either `output` for one file, or per-type fields that each get their own target. Each per-type field is `split` + `import`; schemas, parameters, headers and mediaTypes also take `exportTypes`.',
+    examples: [
+      { output: 'src/components/index.ts' },
+      {
+        schemas: {
+          split: true,
+          output: 'src/schemas',
+          import: '@/schemas',
+          exportTypes: true,
+        },
+        responses: { split: true, output: 'src/responses', import: '@/schemas' },
+      },
+    ],
+  })
 
 /** Fields both modes share. `template` belongs to the contract variant alone. */
 const sharedFields = {

@@ -37,20 +37,20 @@ export type WakuseiConfig = {
   readonly components?:
     | ({
         readonly output?: string | undefined
-        readonly schemas?:
-          | {
-              readonly output: string
-              readonly split?: boolean | undefined
-              readonly import?: string | undefined
-            }
-          | undefined
+        readonly schemas?: ComponentTarget | undefined
       } & {
-        readonly [K in ComponentKind]?:
-          | { readonly output: string; readonly import?: string | undefined }
-          | undefined
+        readonly [K in ComponentKind]?: ComponentTarget | undefined
       })
     | undefined
 } & { readonly [K in ExportFlag]: boolean }
+
+/** One per-type `components.*` target after the config is written. */
+export type ComponentTarget = {
+  readonly output: string
+  readonly split?: boolean | undefined
+  readonly import?: string | undefined
+  readonly exportTypes?: boolean | undefined
+}
 
 /** A module the generator writes, and the specifier others must use for it when overridden. */
 export type Target = { readonly file: string; readonly import: string | undefined }
@@ -63,8 +63,11 @@ export type Layout = {
   readonly schemas: Target & { readonly split: boolean }
   /** Whether the kinds below live in the schemas module itself. */
   readonly aggregate: boolean
-  /** The Components kinds the config turns on, each with its file. */
-  readonly components: readonly (Target & { readonly kind: ComponentKind })[]
+  /** The Components kinds the config turns on, each with its file or split directory. */
+  readonly components: readonly (Target & {
+    readonly kind: ComponentKind
+    readonly split: boolean
+  })[]
   /** `@orpc/server` procedures (server) or `implement(contract)` stubs (contract + template). */
   readonly handlersDir: string | undefined
   /** The `@orpc/contract` router (contract mode). */
@@ -102,11 +105,12 @@ function toFile(output: string) {
 }
 
 /**
- * Two component layouts. Aggregate: without per-kind config, flags or `split`, the
- * schemas and every flagged kind share one module — `components.output`,
+ * Two component layouts. Aggregate: without per-kind config, flags or a kind's
+ * `split`, the schemas and every flagged kind share one module — `components.output`,
  * `components.schemas.output`, or `src/components/index.ts`. Individual: otherwise the
  * schemas get their own module (default `src/components/schemas.ts`) and each kind
- * that is flagged or configured gets its file (default `src/components/<kind>.ts`).
+ * that is flagged or configured gets its file (default `src/components/<kind>.ts`) —
+ * or a directory, when that kind's `split` is on.
  */
 export function resolveLayout(config: WakuseiConfig): Layout {
   const base = path.resolve(process.cwd(), config.output)
@@ -136,16 +140,40 @@ export function resolveLayout(config: WakuseiConfig): Layout {
     pathAlias: config.pathAlias,
     schemas: { file: schemas, split, import: components?.schemas?.import },
     aggregate,
-    components: enabled.map((kind) => ({
-      kind,
-      file: aggregate
-        ? schemas
-        : path.resolve(base, toFile(components?.[kind]?.output ?? DEFAULT_FILES[kind])),
-      import: components?.[kind]?.import,
-    })),
+    components: enabled.map((kind) => {
+      const target = components?.[kind]
+      const splitKind = target?.split === true
+      return {
+        kind,
+        split: splitKind,
+        file: aggregate
+          ? schemas
+          : path.resolve(
+              base,
+              splitKind
+                ? (target?.output ?? DEFAULT_FILES[kind].replace(/\.ts$/u, ''))
+                : toFile(target?.output ?? DEFAULT_FILES[kind]),
+            ),
+        import: target?.import,
+      }
+    }),
     handlersDir: handlersDir === undefined ? undefined : path.resolve(base, handlersDir),
     contract: config.mode === 'contract' ? path.resolve(base, 'src/contract.ts') : undefined,
   }
+}
+
+/** `export type` for a kind: the top-level `export*Types` flag or `components.<kind>.exportTypes`. */
+export function kindExportTypes(kind: ComponentKind, config: WakuseiConfig) {
+  const perKind = config.components?.[kind]?.exportTypes === true
+  if (kind === 'parameters') return perKind || config.exportParametersTypes
+  if (kind === 'headers') return perKind || config.exportHeadersTypes
+  if (kind === 'mediaTypes') return perKind || config.exportMediaTypesTypes
+  return perKind
+}
+
+/** `export type` next to each `components.schemas` declaration. */
+export function schemasExportTypes(config: WakuseiConfig) {
+  return config.exportSchemasTypes || config.components?.schemas?.exportTypes === true
 }
 
 /** A path as a module specifier: POSIX separators, no `.ts`, no trailing `index`. */
