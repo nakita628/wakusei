@@ -176,87 +176,42 @@ New routes are added as stubs. Deleted routes are removed, and a handler file no
 
 `pathAlias`, `prefix` and `components.*.import` are checked here because they are spliced into the generated code verbatim: a quote, a backslash or whitespace would close a `'...'` literal early.
 
-### Fields
-
-| Field                   | Type                                  | Default        | Meaning                                                  |
-| ----------------------- | ------------------------------------- | -------------- | -------------------------------------------------------- |
-| `input`                 | `.yaml` / `.json` / `.tsp`            | required       | OpenAPI or TypeSpec entry document                       |
-| `output`                | string                                | required       | Base directory, or a `.ts` file for one module           |
-| `mode`                  | `'server'` \| `'contract'`            | required       | `@orpc/server` procedures, or an `@orpc/contract` router |
-| `schema`                | `'zod'` \| `'valibot'` \| `'arktype'` | `'zod'`        | Validation library                                       |
-| `format`                | oxfmt `FormatConfig`                  | omitted        | Formatter options for every generated file               |
-| `readonly`              | boolean                               | `false`        | `as const` on generated component objects                |
-| `prefix`                | string                                | omitted        | Prefix prepended to every generated route path           |
-| `pathAlias`             | string                                | omitted        | Import prefix that stands for `<output>/src`             |
-| `template`              | `{ output?: directory }`              | omitted        | Contract mode only: `implement(contract)` stubs          |
-| `template.output`       | directory                             | `src/handlers` | Directory for those stubs                                |
-| `exportSchemas`         | boolean                               | `false`        | Accepted; schema constants are always `export const`     |
-| `exportSchemasTypes`    | boolean                               | `true`         | `export type` next to each schema                        |
-| `exportResponses`       | boolean                               | `false`        | Generate `components.responses`                          |
-| `exportParameters`      | boolean                               | `false`        | Generate `components.parameters`                         |
-| `exportParametersTypes` | boolean                               | `false`        | `export type` next to each parameter schema              |
-| `exportExamples`        | boolean                               | `false`        | Generate `components.examples`                           |
-| `exportRequestBodies`   | boolean                               | `false`        | Generate `components.requestBodies`                      |
-| `exportHeaders`         | boolean                               | `false`        | Generate `components.headers`                            |
-| `exportHeadersTypes`    | boolean                               | `false`        | `export type` next to each header schema                 |
-| `exportSecuritySchemes` | boolean                               | `false`        | Generate `components.securitySchemes`                    |
-| `exportLinks`           | boolean                               | `false`        | Generate `components.links`                              |
-| `exportCallbacks`       | boolean                               | `false`        | Generate `components.callbacks`                          |
-| `exportPathItems`       | boolean                               | `false`        | Generate `components.pathItems`                          |
-| `exportMediaTypes`      | boolean                               | `false`        | Generate `components.mediaTypes`                         |
-| `exportMediaTypesTypes` | boolean                               | `false`        | `export type` next to each media type schema             |
-
-### `components`
-
-A kind configured here is generated even without its `export*` flag. `components.output` cannot sit next to any per-type field.
-
-| Field                               | Type       | Default                              | Meaning                                            |
-| ----------------------------------- | ---------- | ------------------------------------ | -------------------------------------------------- |
-| `components.output`                 | `.ts` path | omitted                              | One file for the schemas and every flagged kind    |
-| `components.schemas.output`         | string     | see below                            | File or directory for `components.schemas`         |
-| `components.schemas.split`          | boolean    | `false`                              | One file per schema under `output`                 |
-| `components.schemas.import`         | string     | omitted                              | Specifier handlers use for the schemas             |
-| `components.responses.output`       | string     | `src/components/responses.ts`        | File or directory for `components.responses`       |
-| `components.responses.import`       | string     | omitted                              | Specifier this file uses for the schemas           |
-| `components.parameters.output`      | string     | `src/components/parameters.ts`       | File or directory for `components.parameters`      |
-| `components.parameters.import`      | string     | omitted                              | Specifier this file uses for the schemas           |
-| `components.headers.output`         | string     | `src/components/headers.ts`          | File or directory for `components.headers`         |
-| `components.headers.import`         | string     | omitted                              | Specifier this file uses for the schemas           |
-| `components.examples.output`        | string     | `src/components/examples.ts`         | File or directory for `components.examples`        |
-| `components.examples.import`        | string     | omitted                              | Specifier this file uses for the schemas           |
-| `components.requestBodies.output`   | string     | `src/components/request-bodies.ts`   | File or directory for `components.requestBodies`   |
-| `components.requestBodies.import`   | string     | omitted                              | Specifier this file uses for the schemas           |
-| `components.securitySchemes.output` | string     | `src/components/security-schemes.ts` | File or directory for `components.securitySchemes` |
-| `components.securitySchemes.import` | string     | omitted                              | Specifier this file uses for the schemas           |
-| `components.links.output`           | string     | `src/components/links.ts`            | File or directory for `components.links`           |
-| `components.links.import`           | string     | omitted                              | Specifier this file uses for the schemas           |
-| `components.callbacks.output`       | string     | `src/components/callbacks.ts`        | File or directory for `components.callbacks`       |
-| `components.callbacks.import`       | string     | omitted                              | Specifier this file uses for the schemas           |
-| `components.pathItems.output`       | string     | `src/components/path-items.ts`       | File or directory for `components.pathItems`       |
-| `components.pathItems.import`       | string     | omitted                              | Specifier this file uses for the schemas           |
-| `components.mediaTypes.output`      | string     | `src/components/media-types.ts`      | File or directory for `components.mediaTypes`      |
-| `components.mediaTypes.import`      | string     | omitted                              | Specifier this file uses for the schemas           |
-
-`components.schemas.output` defaults to `src/components/index.ts` when nothing else is generated, `src/components/schemas.ts` when other kinds have their own files, or a directory when `split` is `true`.
-
-### Example
-
 ```ts
 // wakusei.config.ts
 import { defineConfig } from 'wakusei'
 
 export default defineConfig({
-  input: 'openapi.yaml', // OpenAPI or TypeSpec (.yaml, .json, .tsp)
-  format: {}, // oxfmt FormatConfig; see https://www.npmjs.com/package/oxfmt
-  output: '.', // base directory, or a .ts file for one module
-  mode: 'contract', // 'server' | 'contract'
-  schema: 'zod', // 'zod' | 'valibot' | 'arktype'
-  template: { output: 'src/handlers' }, // contract only; rejected in server mode
-  readonly: false, // as const on generated component objects
-  prefix: '/api/v1', // prepended to every generated route path
-  pathAlias: '@/', // import prefix for <output>/src
+  // OpenAPI or TypeSpec entry document (.yaml, .json, .tsp)
+  input: 'openapi.yaml',
 
-  // Export options (OpenAPI Components Object)
+  // oxfmt FormatConfig for every generated file
+  // @see https://www.npmjs.com/package/oxfmt
+  format: {},
+
+  // Base directory of the generated tree, or a .ts file for one module
+  output: '.',
+
+  // 'server' | 'contract'. 'server' is the CLI one-shot (`wakusei openapi.yaml`)
+  mode: 'contract',
+
+  // Validation library: 'zod' | 'valibot' | 'arktype' (default 'zod')
+  schema: 'zod',
+
+  // Contract mode only: implement(contract) stubs (default directory src/handlers)
+  template: { output: 'src/handlers' },
+
+  // as const on generated component objects (default false)
+  readonly: false,
+
+  // Prefix prepended to every generated route path
+  prefix: '/api/v1',
+
+  // Import prefix that stands for <output>/src
+  pathAlias: '@/',
+
+  // Export options (OpenAPI Components Object). A flagged kind is generated;
+  // without components.output each one gets its own file. *Types adds
+  // export type next to each schema, parameter, header or media type.
   exportSchemas: true, // schema constants stay export const (handlers import them)
   exportSchemasTypes: true, // export type for each schema (default true)
   exportResponses: true, // generate components.responses
@@ -273,14 +228,17 @@ export default defineConfig({
   exportMediaTypes: true, // generate components.mediaTypes
   exportMediaTypesTypes: true, // export type for each media type schema
 
-  // Per-type outputs. Mutually exclusive with `components.output`
-  // (that one file would hold the schemas and every flagged kind).
+  // Where components go. A kind configured here is generated even without
+  // its flag. output (one aggregate .ts file) is mutually exclusive with
+  // the per-type fields. schemas.output defaults to src/components/index.ts
+  // when nothing else is generated, src/components/schemas.ts otherwise,
+  // or a directory when split is true.
   components: {
     // output: 'src/components/index.ts',
     schemas: {
-      output: 'src/schemas', // file, or a directory when split is true
-      split: true, // one file per schema
-      import: '@/schemas', // specifier handlers use
+      output: 'src/schemas',
+      split: true,
+      import: '@/schemas',
     },
     responses: {
       output: 'src/components/responses.ts',
