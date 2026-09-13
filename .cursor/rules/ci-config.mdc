@@ -1,0 +1,110 @@
+---
+description: The workflow, action pinning, the lint / format / build configuration, the repository linters and their scripts, dependencies and the published package
+globs: .github/**,**/package.json,**/vite.config.ts,**/tsconfig.json,pnpm-workspace.yaml,scripts/**,cspell.config.yml,project-words.txt,.textlintrc.yml,.markdownlint-cli2.jsonc,.secretlintrc.json
+alwaysApply: false
+---
+
+# CI and configuration
+
+## The workflow
+
+- `test.yml` (Test), on every push to `main` and every pull request:
+  `vp install --frozen-lockfile` → `vp run wakusei#build` → the package tests → `vp run check`,
+  which ends in `pnpm lint` and so runs every linter. A new check goes into the root
+  `package.json` scripts, so local and CI cannot disagree about what "clean" means.
+- **Actions are pinned to a commit digest with the tag kept as a comment**:
+  `uses: actions/checkout@3d3c42e… # v7.0.1`. A floating tag is a mutable dependency with access to
+  the job — never introduce one. Resolve a tag with
+  `git ls-remote https://github.com/<owner>/<repo> 'refs/tags/<tag>*'` (for an annotated tag, the
+  `^{}` line is the commit).
+- `permissions` stays minimal (`{}` or `contents: read`, widened per job); checkout uses
+  `persist-credentials: false`.
+- A finding is excused next to what it is about, with the reason: an inline
+  `# zizmor: ignore[audit]`, an entry in `.github/zizmor.yml` pinned to `file:line:col`, or an
+  actionlint message in `.github/actionlint.yml` scoped to one file (create the file for the first
+  one). Never drop the check.
+- Verify a workflow or script change with `pnpm lint`, and in a fresh clone
+  (`git clone . <tmp> && cd <tmp> && pnpm install --frozen-lockfile`, then the workflow's steps in
+  order) when it depends on files a checkout would not have (`dist`, `coverage`).
+
+## The repository linters
+
+`pnpm lint` runs, in order: markdownlint, textlint, cspell, secretlint, `scripts/typespec.ts`,
+`scripts/actionlint.ts`, `scripts/zizmor.ts`. The docs rule says how to live with the three prose
+linters.
+
+- The npm-based linters are root devDependencies, **pinned exactly**.
+- actionlint and zizmor have no npm distribution. Their scripts download the pinned release for
+  the platform, verify its sha256 and cache it under `node_modules/.cache`. Bumping one means
+  changing `VERSION` and **every checksum** together: actionlint's from the release's
+  `*_checksums.txt`, zizmor's from each asset's `digest` in the GitHub releases API.
+- `scripts/*.ts` are TypeScript executed by `node` directly (type stripping), so they use only
+  erasable syntax — no `enum`, no parameter properties — and import only root devDependencies.
+- `scripts/typespec.ts` reads `packages` in `pnpm-lock.yaml`: it fails on two versions of one
+  `@typespec/*` package, on 1.x packages of different releases, and on an unsatisfied peer range
+  between them, and prints the command that realigns them.
+- secretlint scans every tracked file with the recommended preset. There is no allowlist; a
+  finding is a real leak to remove.
+
+## Editing the lint configuration
+
+The `lint` section of `packages/wakusei/vite.config.ts` is the standard this repository holds
+itself to, and its comments explain the choices.
+
+- Adding a rule: place it in the section it belongs to, with the reason above it if its name does
+  not say it. Run `pnpm check` and fix what it reports in the code — the rule is not finished until
+  the repository passes it.
+- A rule that does not fit is **left out of the list**, with a comment saying why. It is never set
+  to `'off'` in `rules`; `'off'` appears only in `overrides`, scoped to the files it describes,
+  with the reason.
+- `categories` (correctness / suspicious / perf) are errors, so rules in those categories are not
+  restated in `rules`.
+- `plugins` replaces oxlint's defaults, so the defaults are restated there — do not drop one while
+  adding another.
+- A new `src/` directory gets its `no-restricted-imports` override (see the architecture rule).
+
+## Formatting
+
+- The style lives in the root `vite.config.ts` `fmt` block (printWidth 100, single quotes, no
+  semicolons, sorted `package.json` and imports) and every workspace inherits it. Keep any
+  `ignorePatterns` there specific: a broad root-relative pattern makes a workspace skip its own
+  files.
+- The same style is `defaultConfig` in `src/format/index.ts`, because generated code is formatted
+  at runtime. Change both together.
+
+## Dependencies
+
+- `pnpm-lock.yaml` is written by `pnpm install`. Never edit it by hand. CI installs with
+  `--frozen-lockfile`.
+- `effect` and `@effect/platform-node` are pinned exactly to the release candidate oas-truth's
+  schema-to-library uses; `@effect/platform-node-shared` is forced to the same one by `overrides` in
+  `pnpm-workspace.yaml` (its caret range would otherwise resolve a later RC that imports modules
+  the pinned `effect` lacks). They move together, in one change.
+- The `@typespec/*` packages move together, to one TypeSpec release. Their versions live **only**
+  in the strict `catalog` of `pnpm-workspace.yaml`; a `package.json` says `"catalog:"`, and
+  `pnpm pack` / `pnpm publish` write the catalog range into the published manifest.
+  `catalogMode: strict` makes `pnpm add` refuse a version outside the catalog, and writes a new
+  package into it: only `@typespec/*` belongs there, so move anything else back to a version in its
+  `package.json`. `@typespec/openapi` is a devDependency only so the peer of `@typespec/openapi3`
+  follows the catalog.
+- `oas-truth` is the generator's core; a bump changes generated output, so read the diff of the
+  test expectations rather than updating them blindly. A version newer than pnpm's minimum
+  release age goes into `minimumReleaseAgeExclude`, and comes out once it is old enough.
+- `typescript` is a root devDependency because `vp pack` needs it to emit the `.d.ts` files.
+- The package's runtime `dependencies` are what every user installs. Adding one is a design
+  decision — ask first. Tooling goes in `devDependencies`.
+
+## The published package
+
+- `exports`: `./config` and `./vite-plugin`, each `types` + `import` from `dist`; `bin` is
+  `dist/index.js`. `pack.entry` in `packages/wakusei/vite.config.ts` builds one file per entry
+  (`.js` / `.d.ts` via `outExtensions`). Keep them in step.
+- There are no lifecycle scripts.
+- The package `README.md` is what npm shows; keep it identical to the root copy (see the docs
+  rule).
+
+## Releasing
+
+There is no release workflow yet, and `packages/wakusei/package.json` is `"private": true`.
+Setting up publishing (a release workflow, npm Trusted Publishing, dropping `private`) is a decision for the owner: never publish, tag or bump `version` unless it was asked
+for.

@@ -1,0 +1,152 @@
+---
+description: src layering, per-directory responsibilities, the oas-truth boundary, what the generator emits, user code in the output, vendor extensions and the public API
+globs: packages/wakusei/src/**/*.ts
+alwaysApply: false
+---
+
+# Architecture
+
+## Layering
+
+Dependencies run **one way**. The order is enforced by the `no-restricted-imports` overrides in
+the `lint` section of `packages/wakusei/vite.config.ts`, each with a message saying what the
+directory may import:
+
+```text
+leaves       config  file  format  merge  openapi     (no project-internal imports)
+             helper -> helper only
+generator -> helper
+emit      -> format, file
+core      -> helper, generator, emit, file, format, merge, openapi
+cli       -> config, core
+vite-plugin -> config, core, file
+testing   -> file                                     (test-only; nothing in dist imports it)
+```
+
+Wanting to reach an upper layer means the design is wrong — pass the value in, or move the shared
+code down. `core` cannot import `config`, which is why `core/layout.ts` declares its own
+`WakuseiConfig` shape. A new edge, or a new `src/` directory, is a change to the overrides first
+and to the code second.
+
+## Responsibilities
+
+| Directory | Owns | Never does |
+| --- | --- | --- |
+| `config/` | the Effect Schema config, `defineConfig`, `parseConfig`, `readConfig`, `ConfigError` | import anything internal |
+| `openapi/` | `parseOpenAPI`: oas-truth's parser wrapped in an Effect, `OpenAPIError` | generate code |
+| `file/` | every file operation, over `FileSystem`, plus `fileSystemLayer` | decide what to write |
+| `format/` | oxfmt through the `FormatOptions` reference, `FormatError` | touch the filesystem |
+| `emit/` | format → mkdir → write (`emit`, `emitFiles`) | build code |
+| `merge/` | the pure merge of regenerated procedures into an existing handler file (ts-morph) | know about OpenAPI or the filesystem |
+| `helper/` | `library.ts` (the per-lib table: object / field builders for the combined input, import candidates), `identifiers.ts` (free identifiers of generated code), `imports.ts` (import lines for what the code references), `operations.ts` (paths / webhooks → `OperationInfo`) | file I/O |
+| `generator/` | pure code builders: `schemas.ts` (oas-truth's `makeSchemaDeclarations` with wakusei's type naming), `components.ts` (oas-truth's `make*Declarations`), `procedures.ts` (route / input / output chains, server procedures, the contract, `implement` stubs) | touch the filesystem, run an Effect |
+| `core/` | orchestration: `index.ts` (`orpc()`), `layout.ts` (config → paths and import specifiers), `components.ts`, `procedures.ts` | assemble code strings (`make*Code` lives in `generator`) |
+| `cli/` | the `wakusei` command on `effect/unstable/cli` | generator logic |
+| `vite-plugin/` | `wakuseiVite()`: reload the config, regenerate on change, clean the split schemas directory and stale outputs | generator logic |
+| `testing/` | `runGenerator` / `runGeneratorError` | ship in `dist` |
+
+## One pipeline
+
+The CLI and the Vite plugin both call only `orpc()` (`src/core/index.ts`), which runs, stopping at
+the first failure: `parseOpenAPI`, then either `writeSingleFile` (when `output` is a `.ts` file)
+or `resolveLayout` → `writeComponents` → `writeServer` (server mode) / `writeContract` (contract
+mode). Each `write*` returns an Effect. Anything that changes what gets generated belongs in
+`orpc()` or below, so the two entry points cannot disagree. What only the plugin does (config
+reload, cleaning the split schemas directory and stale outputs) says why in its own comment.
+
+## What the generator emits
+
+- A procedure is named from its method and path (`getPostsPostId`); `operationId` is not used.
+- One handler file per resource — the first path segment, or `root` when the path starts with a
+  parameter — plus an `index.ts` barrel. OAS 3.1 webhooks are served as `/<name>`.
+- `.input()` is the JSON body's schema alone, or, next to parameters, one object of the path
+  parameters, the query parameters and the body's properties (a parameter wins a key clash).
+  `.output()` is the success response's JSON schema.
+- Each schema declaration exports its type under the same name
+  (`export type PostSchema = z.infer<typeof PostSchema>`).
+- Components: without per-kind config, flags or `split`, the schemas and every flagged kind share
+  one module (`components.output`, `components.schemas.output` or `src/components/index.ts`).
+  Otherwise the schemas get their own module and each kind that is flagged or configured gets its
+  file, with an `index.ts` barrel when they share a directory.
+
+## Output that holds the user's code
+
+The server procedure files and, in contract mode with `template`, the `implement(contract)` stub
+files are **merged**, not rewritten: `writeHandlerFiles` reads the existing file and
+`mergeProcedureFile` carries across handler bodies, `.use()` middleware in its position, calls
+after `.handler(...)` (`.callable()`, `.actionable()`) and user imports. It also deletes the
+handler files no resource maps to any more.
+
+- Never delete, empty or blindly overwrite that output — not in a cleanup, not in a split clean,
+  not on a config change. (wakusei's first Vite plugin emptied the handlers directory before every
+  run and lost every handler body; its tests now pin that it does not.)
+- A change to what they emit must keep the merge able to carry the user's edits across; add a
+  merge test when the emitted structure changes.
+- `mergeProcedureFile` takes the project module specifiers the generator owns (the schemas
+  module, the contract), so a stale import from them is dropped rather than kept as a user import.
+- The Vite plugin runs one generation at a time (a one-permit `Semaphore` around the startup run
+  and every change): two runs in flight would read, merge and rewrite the same handler files, and a
+  read of a half-written file loses its handler bodies. Its file watcher is the one trigger — config
+  and input changes share one debounce — while `handleHotUpdate` only keeps the config out of HMR.
+
+Everything else — components, the split schemas directory, the contract, a single-file output —
+is the generator's and is rewritten wholesale.
+
+## The oas-truth boundary
+
+- OpenAPI types (`OpenAPI`, `Schema`, `Components`, …) and `parseOpenAPI` are imported straight
+  from `oas-truth`; there is no re-export module.
+- **No direct dependency on schema-to-library.** Every validator expression comes from oas-truth's
+  adapter (`makeAdapter(lib).toExpression`), so schema-to-library's version is decided by
+  oas-truth and the output cannot drift. An inline expression already references declared
+  schemas by name, without a lazy wrapper.
+- **`components.schemas` belongs to oas-truth.** `makeSchemaDeclarations` returns the
+  declarations in dependency-first order, handles `$ref` cycles (lazy references inside the cycle
+  with a `z.ZodType<…>` / `v.GenericSchema<…>` annotation, an arktype `scope` container) and
+  suffixes colliding names (`user` / `User` → `User` / `User2`). wakusei only asks for exported
+  types named after the constant (`typeAlias: 'const'`). Do not re-implement any of it here.
+- Every other Components kind comes from its `make<Kind>Declarations`, `mediaTypes` included.
+- A `$ref` wakusei writes itself (a `.input()` / `.output()` schema, a body property) resolves
+  through `makeSchemaVarName(ref, makeSchemaIdentifiers(schemas))`, the same collision map the
+  declarations use.
+- Query and path parameters are coerced by schema-to-library's `paramIn`
+  (`adapter.toExpression(schema, paramIn)`): zod `z.coerce`, valibot `v.transform(Number)`,
+  arktype `.parse`.
+- **Never patch oas-truth's output with string edits.** Fix the mistake in oas-truth or
+  schema-to-library.
+
+## Vendor extensions (`x-*`)
+
+Three layers:
+
+- **A — messages**: supported, always on; emitted as validator error messages. `x-error-message`,
+  `x-pattern-message`, `x-minimum-message`, `x-required-message` and the rest of the family.
+- **B — transforms**: supported, always on; declarative keys schema-to-library emits per lib.
+  `x-trim`, `x-coerce`, `x-readonly`, `x-stringbool`, `x-brand`, `x-normalize` and the like.
+- **C — code injection**: **unsupported, permanently.** The ten keys are `x-refine`,
+  `x-superRefine`, `x-preprocess`, `x-codec`, `x-transform`, `x-pipe`, `x-check`, `x-filter`,
+  `x-narrow` and `x-morph`. schema-to-library's `unsafeCodeExtensions` is never passed, by wakusei
+  or by oas-truth's adapter.
+
+Why C stays sealed: it pastes spec strings into generated code verbatim, which is remote code
+execution wherever a spec crosses a trust boundary (a SaaS, a playground); schema-to-library's
+denylist can be bypassed through built-in prototypes; an opt-in is one config line away from being
+enabled by mistake; and one RCE after opening it would be irreversible. A proposal to expose it is
+declined.
+
+**Transparency contract:** wakusei and oas-truth's adapter pass **every** `x-*` key through to
+schema-to-library unfiltered. C-layer keys disappear only because schema-to-library defaults
+`unsafeCodeExtensions` to `false` — never because wakusei strips them.
+
+## Public API
+
+What users can import is exactly the `exports` map of `packages/wakusei/package.json`:
+
+- `wakusei/config` → `src/config/index.ts` (`defineConfig` and the config types)
+- `wakusei/vite-plugin` → `src/vite-plugin/index.ts` (`wakuseiVite`)
+- the `wakusei` bin → `dist/index.js` ← `src/index.ts` → `src/cli`
+
+`pack.entry` in `packages/wakusei/vite.config.ts` has one entry per subpath; adding a subpath
+means adding it in both places. The config schema, the CLI flags and the Vite plugin's behavior are
+public too: changing them updates the README in the same change. Do not introduce a breaking change
+on your own initiative — say what it would take and ask.

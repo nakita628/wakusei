@@ -1,0 +1,76 @@
+---
+description: The README, the Cursor rules and every other Markdown file, and the markdownlint, textlint and cspell rules they are held to
+globs: **/*.md,**/*.mdc,cspell.config.yml,project-words.txt,.textlintrc.yml,.markdownlint-cli2.jsonc
+alwaysApply: false
+---
+
+# Documentation
+
+Three linters split the work and never overlap: **markdownlint** owns the document structure,
+**textlint** the prose, **cspell** the individual words. All three run in `pnpm lint`; `pnpm fix`
+autofixes markdownlint and textlint. oxfmt (`pnpm fix`) wraps Markdown prose and tables.
+
+## The README
+
+`README.md` is the user documentation: install, the quick start in both modes, the CLI, the Vite
+plugin, handler merge and the full config reference. It exists **twice, identically**: the root
+copy is what GitHub shows, `packages/wakusei/README.md` is what npm shows. Edit one and copy it
+over the other in the same change (`cmp README.md packages/wakusei/README.md` is silent when they
+match).
+
+- Links are absolute `https://github.com/...` / `https://...` URLs: a relative link breaks on npm.
+- A change to the config, the CLI or the Vite plugin updates the matching section — `CLI`,
+  `Vite Plugin`, `Handler Merge`, `Full Config Reference` — in the same change. Keep the
+  `Full Config Reference` block a config that actually passes `parseConfig`, and the quick start
+  output what the generator writes today.
+- Images carry alt text.
+
+## The agent rules
+
+The agent rules are `.cursor/rules/*.mdc` and nothing else — there is no `AGENTS.md` or
+`CLAUDE.md`. `project.mdc` is always applied, the others by their `globs` (or, for
+`playbooks.mdc`, on request). Keep each rule's `description` and `globs` accurate — they decide
+when it is read. A rule states what the repository actually does — when the code and a rule
+disagree, fix the one that is wrong in the same change rather than leaving them apart. The rules
+are linted like any other Markdown.
+
+## Structure (markdownlint)
+
+- Every default rule is on. A rule that does not fit is turned off in
+  `.markdownlint-cli2.jsonc` with the reason beside it — never left silently unset.
+- The first line is the top-level heading; front matter with a `title` counts.
+- Ordered lists count `1.` `2.` `3.`.
+- Duplicate headings are allowed only under different parents (`MD024` is `siblings_only`).
+- **Every fenced block declares a language, from the closed list**: `ts`, `tsp`, `js`, `json`,
+  `jsonc`, `yaml`, `yml`, `bash`, `sh`, `text`, `diff`, `md`. Terminal output and directory trees
+  are `text`. `typescript` is not in the list on purpose — one spelling per language.
+- Line length is unchecked (a table row cannot wrap), but prose is still wrapped by oxfmt.
+
+## Prose (textlint)
+
+- The docs are English. The Japanese presets are deliberately absent, so do not add Japanese
+  prose to a `.md` or `.mdc` file.
+- `terminology` enforces the canonical spelling of ~250 technical terms: **JavaScript**,
+  **TypeScript**, **npm**, **GitHub**, **JSON**, **OpenAPI** (one word), "built-in",
+  "end-to-end", "bugfix", "SemVer". Code spans and fenced blocks are skipped, so put a package
+  name that collides with a term (`openapi`, `zod`) in a code span.
+- `README` and `re-export` are excluded from the term list on purpose.
+- Quotes, brackets and parentheses must balance (`no-unmatched-pair`). A parenthetical that wraps
+  onto a line starting with a code span, or holds an apostrophe or `…`, can read as unbalanced:
+  keep it on one line or rephrase it as a sentence.
+- No `TODO` in the docs (`no-todo`); an unchecked task-list box counts as one.
+- A deliberate exception is a `<!-- textlint-disable rule-name -- reason -->` comment next to the
+  text that needs it, never a change to `.textlintrc.yml`.
+
+## Spelling (cspell)
+
+- cspell reads **every** tracked file — source, tests, configs, workflows — not just the docs, in
+  **US English** (`behavior`, `optimization`, `color`).
+- A genuine project term (a package, tool or API name that recurs) is a one-line addition to
+  `project-words.txt`, kept sorted. Never add a typo there, and never add `ignoreWords` or
+  `ignorePaths` to `cspell.config.yml` to silence a word.
+- Deliberate non-words (a word split on purpose, test data in another language) are declared in
+  that file only, with the reason: `// cspell:ignore word` in code,
+  `<!-- … cspell:ignore word -->` in Markdown.
+- Prefer real words over cryptic abbreviations in names (`identifiers`, not a clipped form of it).
+- camelCase and snake_case are split automatically, and everything Git ignores is skipped.

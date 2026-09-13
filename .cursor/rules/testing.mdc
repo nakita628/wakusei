@@ -1,0 +1,62 @@
+---
+description: Test conventions for the Vitest suite (vite-plus/test) in packages/wakusei
+globs: **/*.test.ts
+alwaysApply: false
+---
+
+# Tests
+
+Tests run on **Vitest through vite-plus** and live next to what they cover
+(`src/core/index.test.ts`). Run them with `pnpm test`, one file with
+`pnpm -F wakusei test src/<path>.test.ts`.
+
+## Shape
+
+- Import from `vite-plus/test`: `import { describe, expect, it, vi } from 'vite-plus/test'`.
+- `it`, never `test` (`vitest/consistent-test-it`). A title describes the behavior in a sentence.
+- A table is **`it.each` / `describe.each`**, never a loop around `it` (`vitest/prefer-each`).
+- **Exact matches only**: `toBe` / `toStrictEqual`. `toContain`, `toMatch` and other partial
+  matchers are banned — they miss formatting drift and import-order changes. The one exception is
+  array membership (`expect(files).toContain('posts.ts')`). Generated code is compared as the
+  whole string, or as the exact list of lines that matter.
+- An equality matcher over `toBe(true)` on a comparison (`vitest/prefer-equality-matcher`);
+  `toThrow` names its message (`vitest/require-to-throw-message`). A mock names its type
+  parameters (`vi.fn<(id: string) => void>()`).
+- Hooks sit at the top of their `describe`, in order
+  (`prefer-hooks-on-top`, `prefer-hooks-in-order`). `xit` / `fit` prefixes and identical titles
+  fail lint; never commit `it.only` or `it.skip`.
+
+## What tests may do that `src` may not
+
+`*.test.ts` may use `any`, `as` / `as never` casts, `let`, empty stub callbacks and cross-layer
+imports when they spell the fixture out most clearly — coverage wins over strictness at the test
+boundary. The `vite.config.ts` override for `**/*.test.ts` lists exactly what is relaxed;
+everything else in the TypeScript rule still applies. Test files sit outside `tsconfig.json`, so
+type-aware lint sees the default lib there: sort a fresh array with `.sort()`, not `toSorted`.
+
+## Working with the filesystem
+
+- Generators resolve paths against `process.cwd()`. A test that writes files creates its own
+  directory (`fs.mkdtempSync(path.join(os.tmpdir(), 'wakusei-…'))`), `process.chdir`s into it,
+  and restores the previous cwd and removes the directory in `afterEach`. That is why the suite runs
+  with `pool: 'forks'`.
+- Run a generator Effect with `runGenerator` / `runGeneratorError` from `src/testing`; decode a
+  config for it with `parseConfig`, the way the CLI does.
+- Parsing TypeSpec / OpenAPI and formatting real output is slow under a parallel run;
+  `testTimeout` is 30s for that reason. Do not lower it to find a hang.
+- The Vite plugin suite (`vite-plugin/index.test.ts`) drives the real generator through a mock
+  dev server, so it proves what lands on disk (a handler body surviving a regeneration).
+  `vite-plugin/concurrency.test.ts` mocks `../core/index.js` with a deliberately slow first run,
+  because only a run held open can show whether a second one starts beside it. Background work is
+  awaited with `vi.waitFor` on its observable result, never a fixed sleep in the test, and must
+  finish before the test ends or its writes and log lines land in the next test.
+- The CLI suite runs `wakusei(argv, entryUrl)` with a recording `Console`, so it asserts exactly
+  what a user sees on stdout and stderr.
+
+## Coverage of behavior
+
+- A bugfix ships with a test that fails before it and passes after. Prove it: revert the fix,
+  watch the test fail, restore it.
+- Assert through the observable result — files on disk and their contents, the generated source,
+  log lines — rather than internals. A test is not a reason to export a function.
+- A change to the generated code is checked across all three schema libraries and both modes.

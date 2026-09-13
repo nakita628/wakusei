@@ -1,0 +1,92 @@
+---
+description: How Effect programs, errors, services, the config schema and the CLI are written in the package
+globs: packages/wakusei/src/**/*.ts
+alwaysApply: false
+---
+
+# Effect
+
+The package is written on Effect v4 (`4.0.0-rc.112`, pinned exactly to the release candidate
+`oas-truth`'s schema-to-library uses).
+
+## One shape for an Effect program
+
+```ts
+export function readFile(path: string) {
+  return Effect.gen(function* () {
+    const fs = yield* FileSystem.FileSystem
+    return yield* fs
+      .readFileString(path)
+      .pipe(Effect.catchIf(isNotFound, () => Effect.succeed(null)))
+  })
+}
+```
+
+- A function that does I/O **returns an Effect** — never `{ ok, value | error }`, never a Promise.
+- An Effect program is the return value of a named `function`, written as
+  `return Effect.gen(function* () { ... })`, optionally followed by `.pipe(...)` for recovery or a
+  provided service. Straight-line `yield*` steps with early-return guards.
+- Sequential work is `Effect.forEach(..., { discard: true })`; independent work is
+  `Effect.all(..., { concurrency: 'unbounded' })`. The components are written before the modules
+  that import them, so `orpc()` runs its steps in order.
+- **Run an Effect only at a boundary**: `src/index.ts` (`NodeRuntime.runMain`), the Vite plugin's
+  hooks, and `src/testing`. Everywhere else an Effect is returned, so its requirements stay visible
+  to the caller.
+- `Effect.promise` is for what cannot reject: a dynamic `import()` of a sibling module (the CLI
+  loads `core` lazily), or `oas-truth`'s `parseOpenAPI`, which answers with a result. Anything that
+  can reject goes through `Effect.tryPromise` with a `catch` that maps to a typed error.
+
+## Errors
+
+- Failures are tagged errors: `OpenAPIError` (`src/openapi`) and `FormatError` (`src/format`) as
+  `Data.TaggedError`, and `ConfigError` (`src/config`) as `Schema.TaggedError` because it comes out
+  of a schema decode. Filesystem failures stay the platform's `PlatformError`.
+- An external result (oas-truth's) is converted into one of our tagged errors in the module at
+  that boundary.
+- Every error carries a `message` written for the person who ran the command: what is wrong and,
+  where possible, what to do. The CLI renders it as-is.
+- Absorb only the failure you mean: `Effect.catchIf` on the specific reason, as `isNotFound` in
+  `src/file` does, not a blanket `orElse`. The exception is a question that is genuinely
+  advisory, such as `statOrNull` in the Vite plugin.
+- `orpc()` stops at the first failure. The Vite plugin reports a generation failure as a log line
+  (`Effect.result`) so the dev server keeps running.
+
+## Services
+
+- The filesystem is `FileSystem.FileSystem`, provided once at a boundary: `NodeServices.layer` in
+  the CLI entry, `fileSystemLayer` (`src/file`) in the Vite plugin and `src/testing`.
+- **All file access goes through `src/file`** (`readFile` → `null`, `readdir` → `[]`, `unlink`
+  forced, `mkdir` recursive, `writeFile`). Never `node:fs`. Only "not there" is absorbed.
+- `writeFile` skips identical bytes. That skip is contract: the Vite plugin watches the project,
+  and a rewrite would feed a change event back into it.
+- oxfmt options travel as the `FormatOptions` reference (`src/format`), provided per run from the
+  config's `format` block, so two runs in one process cannot leak options into each other.
+
+## The config schema
+
+- Config validation is `effect/Schema` in `src/config`: a `Schema.Union` of a `server` and a
+  `contract` struct, discriminated by `mode`, so `template` exists on the contract variant only —
+  in the decoded type and in `defineConfig`'s input type alike.
+- `parseConfig` decodes `mode` on its own first, so a missing or unknown mode reads as one field
+  (`mode: Expected "server" | "contract"`) instead of the whole union. Then the config is decoded
+  with `onExcessProperty: 'error'`, so an unknown key is rejected.
+- A failure is `Invalid config: <a.b.c>: <message>`; a missing file is `ConfigError` with
+  `notFound: true`.
+- The `export*` flags, `readonly` and `schema` are filled in by `withDecodingDefaultKey`, so the
+  decoded `Config` always has them.
+- A new option is a schema field whose check message names what is expected. Keep
+  `defineConfig`'s input type (`ConfigSchema.Encoded`) accurate: it is what users get completion
+  and errors from while they type.
+
+## The CLI
+
+- `effect/unstable/cli`: an optional `<input>` argument, `--output` / `-o`, `--schema` and
+  `--config` / `-c`. `--help`, `--version` (read from `package.json`) and `--completions` are the
+  library's.
+- Two modes. `<input>` is the one-shot: no config file is read, `-o` switches server mode into
+  contract mode, and the flags are turned into a config through `parseConfig`, so both modes
+  validate the same way. Without `<input>`, a config file runs.
+- A command line that describes neither mode (`--config` next to `<input>`, `-o` or `--schema`
+  without `<input>`) fails with `ShowHelp` and the reason. `ShowHelp` is also raised when no config
+  was asked for and the default file is missing; a config that is present and wrong only names
+  the field.

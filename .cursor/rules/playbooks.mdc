@@ -1,0 +1,112 @@
+---
+description: Step-by-step playbooks for the recurring tasks here — adding a config option, fixing a generator bug, a vendor extension request, checking a change with the built CLI, clearing a lint failure, adding a linter rule, bumping actionlint or zizmor, bumping effect, TypeSpec or oas-truth. Read this when starting any of those.
+alwaysApply: false
+---
+
+# Playbooks
+
+Every playbook ends the same way: `pnpm fix`, then `pnpm check` and `pnpm test`, all green, then
+commit.
+
+## Add a config option
+
+1. Write the failing tests first: validation in `src/config/index.test.ts`, output in the suite of
+   the layer that owns it (`src/core/index.test.ts`, `src/generator/*.test.ts`).
+2. Add the field to the `ConfigSchema` union in `src/config/index.ts` — to `sharedFields`, or to
+   the one variant it belongs to — with a check whose message names what is expected, and to
+   `WakuseiConfig` / `resolveLayout` in `src/core/layout.ts` if it affects paths.
+3. Implement it in `core/` (the Effect program) and `generator/` / `helper/` (the pure builders),
+   respecting the layering. Both entry points reach it through `orpc()`; never special-case one.
+4. If the CLI should expose it, add the flag in `src/cli/index.ts` and pass it through
+   `parseConfig`.
+5. Document it in the README (`Full Config Reference`, and `CLI` for a flag), both copies.
+
+## Fix a generator bug
+
+1. Reproduce it as a failing test at the smallest document that shows it, asserting the exact
+   generated source.
+2. Find the layer that owns the mistake — parsing and Components (oas-truth), a schema expression
+   (schema-to-library), a code builder (`generator/`), composition (`helper/`), the program
+   (`core/`), the merge (`merge/`) — and fix it there, not downstream. A mistake in oas-truth or
+   schema-to-library is fixed upstream, never by string-patching its output here.
+3. Check whether the other two schema libraries, the other mode and single-file output have the
+   same mistake.
+
+## A request to support a vendor extension (`x-*`)
+
+1. Classify it with the architecture rule's three layers.
+2. A or B: it belongs in schema-to-library (and oas-truth's `Schema` type), not here — wakusei
+   only passes it through.
+3. C (code injection): decline, citing the architecture rule. Do not add a flag, an option or an
+   allowlist for it.
+
+## Check a change with the built CLI
+
+For a change to the generated code, the merge, the CLI or the Vite plugin:
+
+1. `vp run wakusei#build`.
+2. In a scratch directory with an OpenAPI document, run
+   `node <repo>/packages/wakusei/dist/index.js openapi.yaml` (and `-o contract.ts`, and a
+   `wakusei.config.ts`), and read what it wrote.
+3. For the merge: edit a handler body, add a `.use(...)`, run again, and confirm both survived.
+4. Type-check the output against the real libraries (`@orpc/server`, `@orpc/contract` and the
+   schema library) when the change touches what the chains or schemas look like. A stub handler
+   next to an `.output()` is expected to fail the check until it is implemented.
+
+## Clear a lint failure
+
+1. Run `pnpm check` and read which linter failed and the rule name in the message.
+2. Try `pnpm fix` first — formatting, import order, markdownlint and textlint terms are
+   autofixable. Read what textlint's `terminology` changed: a package name it "corrected" belongs
+   in a code span instead.
+3. Otherwise **change the code, not the rule.** The rules encode the design: an assertion ban means
+   narrow with a guard; a `no-restricted-imports` message means the dependency direction is wrong;
+   `prefer-each` means `it.each`.
+4. An unknown word from cspell is one line in `project-words.txt` if it is a real project term, a
+   file-local `cspell:ignore` if it is deliberate test data, and a rename or a US spelling if it
+   is an abbreviation or a typo.
+5. Only if an oxlint rule genuinely cannot hold, add
+   `// oxlint-disable-next-line rule-name -- reason` on that line, and say in the report that you
+   added a suppression and why. A secretlint finding is never suppressed.
+
+## Add a linter rule
+
+1. Check its category; correctness / suspicious / perf are already errors.
+2. Add it to the `lint` section of `packages/wakusei/vite.config.ts` in its section, with the
+   reason.
+3. Run `pnpm check` and fix every finding in the code.
+
+## Bump actionlint or zizmor
+
+1. Pick the release and read its notes for new findings.
+2. In `scripts/actionlint.ts` / `scripts/zizmor.ts`, change `VERSION` and every checksum together:
+   actionlint's from the release's `*_checksums.txt`, zizmor's from each asset's `digest` in
+   `https://api.github.com/repos/zizmorcore/zizmor/releases/tags/v<VERSION>`.
+3. `pnpm lint`: the script downloads, verifies and runs the new binary. Fix new findings in the
+   workflow, or excuse one with its reason next to it.
+
+## Bump effect
+
+1. Find the release candidate oas-truth's schema-to-library now uses; that is the target.
+2. Change `effect` and `@effect/platform-node` in `packages/wakusei/package.json` (both exact)
+   and the `@effect/platform-node-shared` override in `pnpm-workspace.yaml` together, then
+   `pnpm install`.
+3. `pnpm check`. The RC moves the Schema and CLI APIs, so expect errors in `config/` and `cli/`.
+4. `pnpm test`, and read every behavior difference rather than adjusting an assertion to match.
+5. Say in the commit body which upstream changes forced code changes.
+
+## Bump TypeSpec
+
+1. Change every `@typespec/*` entry in the `catalog` of `pnpm-workspace.yaml` to the new release
+   (1.x and 0.x together), never a `package.json`.
+2. `pnpm install`, then `node scripts/typespec.ts` (also part of `pnpm lint`): it fails until
+   `pnpm-lock.yaml` holds one release, and prints the `pnpm update` that re-resolves the stragglers.
+3. `pnpm test`: TypeSpec input is compiled for real, so read any changed expectation.
+
+## Bump oas-truth
+
+1. Change the version; if it is younger than pnpm's minimum release age, add it to
+   `minimumReleaseAgeExclude` in `pnpm-workspace.yaml` (and drop entries that no longer need it).
+2. `pnpm install`, `pnpm test`. A changed expectation is a changed generated output: read it and
+   decide whether it is right before updating the test.
+3. If oas-truth moved schema-to-library to a new Effect RC, do the effect bump in the same change.

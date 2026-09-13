@@ -1,0 +1,123 @@
+---
+description: Repository map, commands, invariants and the definition of done (always applied)
+alwaysApply: true
+---
+
+# wakusei — how this repository is run
+
+Generates [oRPC](https://orpc.dev/) code — validation schemas (zod / valibot / arktype),
+`@orpc/server` procedures or an `@orpc/contract` router with `implement` handler stubs — from
+OpenAPI or TypeSpec. Published to npm as `wakusei`, with a CLI and a Vite plugin. Built on
+Effect v4; formatted by oxfmt, linted by oxlint and tested with Vitest, all through vite-plus
+(`vp`) on pnpm.
+
+It owns only the oRPC-specific part. Parsing, the OpenAPI types, every validator expression and
+every Components kind — `schemas` with its dependency order, `$ref` cycles and name collisions
+included — come from [`oas-truth`](https://www.npmjs.com/package/oas-truth).
+
+This repository is operated **through agent conversation**. The config files are the source of
+truth: when an instruction contradicts one, quote the config and ask before changing it.
+
+Everything committed is written in **English** — code, comments, TSDoc, Markdown, commit
+messages, workflow comments. Test data may be in any language.
+
+## Layout
+
+```text
+packages/wakusei/              the published package (the only npm artifact)
+  src/                         implementation; see the architecture rule for the layering
+  vite.config.ts               pack (build), test and lint; the lint section is the standard
+vite.config.ts                 fmt only: the formatting style every workspace inherits
+pnpm-workspace.yaml            workspaces, the @typespec catalog, the Effect override, allowBuilds,
+                               minimumReleaseAgeExclude
+.markdownlint-cli2.jsonc       markdownlint: the structure of the Markdown and the Cursor rules
+.textlintrc.yml                textlint: the prose (terminology, balanced pairs, no TODO)
+cspell.config.yml              cspell: the spelling of every tracked file, code included
+project-words.txt              the words cspell does not know but this project uses on purpose
+.secretlintrc.json             secretlint: no credential is ever committed
+scripts/typespec.ts            fails when the @typespec/* packages in pnpm-lock.yaml mix releases
+scripts/actionlint.ts          downloads a pinned actionlint, verifies its checksum, runs it
+scripts/zizmor.ts              downloads a pinned zizmor (workflow security audit), verifies it, runs it
+.github/workflows/test.yml     Test: build, unit tests, `vp run check` (every linter)
+README.md                      user docs; packages/wakusei/README.md is an identical copy
+```
+
+## Commands
+
+Run these from the repository root.
+
+| Goal | Command |
+| --- | --- |
+| Install dependencies | `pnpm install --frozen-lockfile` |
+| Everything CI checks except the tests: oxfmt, oxlint (type-aware), the type check, then `pnpm lint` | `pnpm check` |
+| Autofix formatting, oxlint, markdownlint and textlint | `pnpm fix` |
+| The repository linters: markdownlint, textlint, cspell, secretlint, the TypeSpec release check, actionlint, zizmor | `pnpm lint` |
+| Unit tests | `pnpm test` |
+| One test file | `pnpm -F wakusei test src/<path>.test.ts` |
+| Build `dist` | `vp run wakusei#build` |
+| Run the built CLI | `node packages/wakusei/dist/index.js --help` |
+
+- `pnpm lint` needs no global tool: the linters are root devDependencies, and actionlint / zizmor
+  are downloaded once at a pinned, checksummed release into `node_modules/.cache` (so the first
+  run needs the network). The scripts are TypeScript run by `node` directly.
+- The published entry points run from `dist`: build before trying the CLI, never judge a change
+  against a stale build.
+
+## Definition of done
+
+Before reporting a task finished, **`pnpm check` and `pnpm test` must both be green** — CI runs
+the build, the tests and the check. One failure means not done. If you only ran part of it, say
+which part.
+
+- A behavior change ships with a test that fails before it and passes after.
+- A change to the config, the CLI, the Vite plugin or the generated output updates the README in
+  the same change (both copies; see the docs rule).
+- Report results as they are. Never call a task complete while hiding a failing command, and
+  never make a check pass by weakening it.
+
+## Invariants
+
+- **Never relax a linter to get a change through.** Do not set a rule to `'off'`, do not lower
+  `categories`, do not drop `denyWarnings`, do not add an `ignorePatterns` / `ignorePaths` /
+  `ignoreWords` entry to hide a finding, do not add a typo to `project-words.txt`. If a rule
+  genuinely does not fit, say so and ask.
+- **Suppressions live next to the code, naming the rule and the reason:**
+  `// oxlint-disable-next-line rule-name -- reason`. `reportUnusedDisableDirectives: 'deny'` is
+  on, so a suppression that stopped firing must go. Do not add a file-level disable; the one that
+  exists (`no-console` in `src/vite-plugin/index.ts`) is there because terminal output is the
+  plugin's interface.
+- **No `TODO` / `FIXME`** — `no-warning-comments` rejects them in source, textlint's `no-todo` in
+  docs. Parked work belongs in the report.
+- **No credential is ever committed.** secretlint scans every tracked file. When it reports one,
+  remove it and tell the owner so the secret can be rotated; never excuse the finding.
+- **Failures are typed Effect errors, never throws** — see the Effect rule.
+- **The handler directories hold the user's code.** Server procedures and the contract's
+  `implement` stubs are merged, never deleted, emptied or blindly overwritten — not by a cleanup,
+  not on a config change. See the architecture rule.
+- **Never hand-edit generated files:** `pnpm-lock.yaml` (let `pnpm install` write it), `dist/`,
+  `coverage/`.
+- **`effect` and `@effect/platform-node` are pinned exactly** to the release candidate
+  `oas-truth`'s schema-to-library uses, and `@effect/platform-node-shared` is overridden to the
+  same one in `pnpm-workspace.yaml`. They move together, in one change.
+- **The C-layer `x-*` extensions (code injection) stay unsupported.** `unsafeCodeExtensions` is
+  never passed to schema-to-library. See the architecture rule before touching vendor extensions.
+- **Never bump `version`, drop `"private": true` from `packages/wakusei/package.json` or publish**
+  unless a release was asked for. There is no release workflow yet; see the CI rule.
+
+## Working order
+
+1. Read the rules in force for the files you are about to touch: the `lint` section of
+   `packages/wakusei/vite.config.ts` and the matching `.cursor/rules/*.mdc`.
+2. Implement it the way the surrounding code is written. Do not introduce a second idiom.
+3. `pnpm fix`, then `pnpm check` and `pnpm test`.
+4. Commit (see Git policy).
+5. In the final report state what changed, which commands verified it, and anything left out.
+
+## Git policy
+
+- The owner has authorized committing **directly to `main`** and pushing once `pnpm check` and
+  `pnpm test` are green. Never force-push and never rewrite pushed history.
+- One logical change per commit. The subject follows the conventional form,
+  `type(scope): imperative summary` — `fix(vite-plugin): keep hand-written handlers when
+  regenerating`, `ci: …`, `chore: …`, `docs: …`, `refactor: …`. The body explains why.
+- Do not commit generated output, secrets or local tooling files.

@@ -1,0 +1,81 @@
+---
+description: TypeScript conventions — what the oxlint configuration enforces and the house style around it
+globs: **/*.ts
+alwaysApply: false
+---
+
+# TypeScript conventions
+
+The source of truth is the `lint` section of `packages/wakusei/vite.config.ts`: type-aware, with
+`typeCheck`, `denyWarnings` and `correctness` / `suspicious` / `perf` as errors. What follows is
+what cannot be worked around. `*.test.ts` relaxes some of it — see the testing rule.
+Effect-specific shapes are in the Effect rule.
+
+## Declarations and control flow
+
+- A module-level function is a **`function` declaration** (`func-style: declaration`). Arrows
+  are for callbacks and closures inside a function.
+- **No `let` and no reassignment.** Write one `const` expression — a ternary, `reduce`, `map`, or
+  an extracted function. State that must change over time lives in a `const` object whose property
+  changes (`pluginState.current` in the Vite plugin). The one module-level `let` is
+  `reloadCount` in `src/config`.
+- Initialize at the declaration (`init-declarations`). No writing through a parameter
+  (`no-param-reassign` with `props: true`), no `++` (`no-plusplus`; use `+= 1`).
+- Return early; avoid nested `if` / `else` (`no-else-return`, `no-lonely-if`). One-line guard
+  clauses may drop their braces (`curly: multi-line`).
+- Prefer pure functions; keep a side effect visibly separate. A file past ~200 lines is a signal to
+  split its responsibilities.
+
+## Types
+
+- **`type X = {...}` only — no `interface`** (`consistent-type-definitions: 'type'`).
+- **No `any`, no `!` non-null assertion, no type assertions**
+  (`consistent-type-assertions` with `assertionStyle: 'never'`). Take `unknown` and narrow it with
+  a guard. `src` has no type assertion today; keep it that way. The one `any` is the return type of
+  `wakuseiVite()`, excused in the lint overrides so users need no Vite types.
+- Every `unsafe-*` rule is an error. `exactOptionalPropertyTypes` is on: an optional property that
+  may hold `undefined` is typed `?: T | undefined`.
+- Write a simple union (`'a' | 'b'`) inline in the signature. Name a type only when it is complex
+  or repeated, next to its users: `Layout` and `WakuseiConfig` live in `src/core/layout.ts`, and
+  `SchemaLib` in `src/helper/library.ts`. Never a `types.ts` dumping ground.
+- Type imports use `import type`, in their own statement
+  (`consistent-type-imports`, `consistent-type-specifier-style`). `@ts-ignore` is banned;
+  `@ts-expect-error` needs a reason.
+
+## Imports and exports
+
+- **A relative specifier carries its `.js` extension** (`import/extensions: always`). The package
+  resolves NodeNext-style at runtime and `tsc` does not check it.
+- **Do not export what nothing else imports.** "Only a test uses it" is not a reason to export —
+  test through the public function. A barrel exists only when something imports from it.
+- **No default exports** (`import/no-default-export`), except where a tool requires one — a
+  `*.config.ts`, suppressed on that line with the reason.
+- ESM only: no `require`, no CommonJS. Node built-ins use the `node:` prefix.
+- Respect the layering in the architecture rule; `no-restricted-imports` reports a wrong edge.
+
+## Errors and async
+
+- Do not throw in `src`: fail through the Effect error channel. A throw that cannot be avoided (a
+  test fixture, generated code) throws an `Error` with a message.
+- A catch binding is named **`error`** (`unicorn/catch-error-name`).
+- No floating promises (`no-misused-promises`); a deliberate fire-and-forget is `void promise`.
+
+## Details
+
+- `console` is banned in `src` except in the Vite plugin, whose terminal output is its interface.
+  The CLI prints through Effect's `Console`.
+- Regular expressions carry the `u` flag (`require-unicode-regexp`).
+- Template literals over concatenation (`prefer-template`). A `${...}` inside a single-quoted
+  string is rejected (`no-template-curly-in-string`) — a real hazard in a code generator. A string
+  literal written into generated code goes through `JSON.stringify`, never hand-escaping.
+- No leading-underscore identifiers, except Effect's `_tag`.
+- Prefer `toSorted` / `at(-1)` / `replaceAll` / `startsWith` and the other modern built-ins the
+  `unicorn` and `typescript/prefer-*` rules ask for.
+- Do not hand-format. oxfmt (`pnpm fix`) owns layout and import order: printWidth 100, single
+  quotes, no semicolons.
+
+## Comments and TSDoc
+
+- Comments say **why**, never what — the identifiers and types say what.
+- Doc comments are TSDoc prose over a self-describing signature. No `@param` / `@returns`
+  boilerplate; the type lives in the signature, never in the comment.
