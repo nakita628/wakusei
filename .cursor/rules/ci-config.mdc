@@ -92,6 +92,9 @@ itself to, and its comments explain the choices.
 - `oas-truth` is the generator's core; a bump changes generated output, so read the diff of the
   test expectations rather than updating them blindly. A version newer than pnpm's minimum
   release age goes into `minimumReleaseAgeExclude`, and comes out once it is old enough.
+  OpenAPI parsing is `oas-truth`'s `parseOpenAPI`. Do not add `@apidevtools/swagger-parser`
+  (or another OpenAPI parser) as a wakusei dependency — it is oas-truth's peer, and wakusei
+  never imports it.
 - `typescript` is a root devDependency because `vp pack` needs it to emit the `.d.ts` files.
 - The package's runtime `dependencies` are what every user installs. Adding one is a design
   decision — ask first. Tooling goes in `devDependencies`.

@@ -41,7 +41,6 @@
     "coverage": "vp test --coverage"
   },
   "dependencies": {
-    "@apidevtools/swagger-parser": "^12.1.0",
     "@effect/platform-node": "4.0.0-rc.112",
     "@typespec/compiler": "catalog:",
     "@typespec/openapi3": "catalog:",
