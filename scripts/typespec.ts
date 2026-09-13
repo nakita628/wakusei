@@ -4,7 +4,7 @@
 // 1.x, rest and versioning on 0.x) and each declares the others as peers at its own release
 // (@typespec/openapi3 1.16.0 wants @typespec/compiler ^1.16.0 and @typespec/versioning ^0.86.0).
 // The catalog in pnpm-workspace.yaml pins the TypeSpec packages this repository declares
-// (`@typespec/http` for the e2e document). A half-bumped set still installs with only a
+// (`@typespec/http` for the end-to-end document). A half-bumped set still installs with only a
 // warning: oas-truth's TypeSpec peers can pull in another release, and Renovate's security
 // updates bypass the "typespec" group in renovate.json and bump only the advisory's package.
 // This check is what makes such a change fail.
