@@ -444,7 +444,8 @@ export default defineConfig({
             {
               patterns: [
                 {
-                  regex: '^(\\.\\./)+(emit|file|format|generator|helper|merge|openapi|testing)(/.*)?$',
+                  regex:
+                    '^(\\.\\./)+(emit|file|format|generator|helper|merge|openapi|testing)(/.*)?$',
                   message: 'cli may only import config, core',
                 },
               ],
@@ -460,7 +461,8 @@ export default defineConfig({
             {
               patterns: [
                 {
-                  regex: '^(\\.\\./)+(cli|emit|format|generator|helper|merge|openapi|testing)(/.*)?$',
+                  regex:
+                    '^(\\.\\./)+(cli|emit|format|generator|helper|merge|openapi|testing)(/.*)?$',
                   message: 'vite-plugin may only import config, core, file',
                 },
               ],

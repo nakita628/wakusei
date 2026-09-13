@@ -46,6 +46,22 @@ function makeSchemaImports(
  * One merged file per resource group and an `index.ts` barrel. Existing handler bodies
  * survive through `mergeProcedureFile`; `.ts` files no group maps to any more are deleted.
  */
+function writeHandlerFile(
+  dir: string,
+  name: string,
+  operations: readonly OperationInfo[],
+  makeCode: (operations: readonly OperationInfo[]) => string,
+  managed: ReadonlySet<string>,
+) {
+  return Effect.gen(function* () {
+    const file = path.join(dir, `${name}.ts`)
+    const code = makeCode(operations)
+    const existing = yield* readFile(file)
+    const merged = existing === null ? code : mergeProcedureFile(existing, code, managed)
+    yield* emit(merged, dir, file)
+  })
+}
+
 function writeHandlerFiles(
   dir: string,
   groups: ReadonlyMap<string, readonly OperationInfo[]>,
@@ -56,14 +72,7 @@ function writeHandlerFiles(
     const names = [...groups.keys()]
     yield* Effect.forEach(
       groups,
-      ([name, operations]) =>
-        Effect.gen(function* () {
-          const file = path.join(dir, `${name}.ts`)
-          const code = makeCode(operations)
-          const existing = yield* readFile(file)
-          const merged = existing === null ? code : mergeProcedureFile(existing, code, managed)
-          yield* emit(merged, dir, file)
-        }),
+      ([name, operations]) => writeHandlerFile(dir, name, operations, makeCode, managed),
       { discard: true },
     )
     if (names.length > 0) {

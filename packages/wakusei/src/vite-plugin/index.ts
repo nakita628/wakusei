@@ -212,18 +212,19 @@ export function wakuseiVite(): any {
   // A change that arrives mid-run waits and runs after, reading the state as it is by then.
   const oneRunAtATime = Semaphore.withPermit(Semaphore.makeUnsafe(1))
 
-  const regenerate = (server?: ViteDevServer) =>
-    Effect.gen(function* () {
+  function regenerate(server?: ViteDevServer) {
+    return Effect.gen(function* () {
       if (!pluginState.current) return
       yield* Console.log('🪐 wakusei')
       const logs = yield* runGeneration(pluginState.current)
       for (const log of logs) yield* Console.log(log)
       if (server) server.ws.send({ type: 'full-reload' })
     })
+  }
 
   /** Loads the config; on success, remembers it and starts watching its input documents. */
-  const loadConfig = (server: ViteDevServer) =>
-    Effect.gen(function* () {
+  function loadConfig(server: ViteDevServer) {
+    return Effect.gen(function* () {
       const next = yield* Effect.result(readConfigWithHotReload(server))
       if (Result.isFailure(next)) {
         yield* Console.error(`❌ wakusei config: ${next.failure.message}`)
@@ -240,15 +241,23 @@ export function wakuseiVite(): any {
       )
       return true
     })
+  }
 
   /** Reloads the config first when it is among the changes, then regenerates. */
-  const handleChanges = (server: ViteDevServer) =>
-    Effect.gen(function* () {
+  function handleChanges(server: ViteDevServer) {
+    return Effect.gen(function* () {
       const configChanged = pluginState.configChanged
       pluginState.configChanged = false
       if (configChanged && !(yield* loadConfig(server))) return
       yield* regenerate(server)
     })
+  }
+
+  function start(server: ViteDevServer) {
+    return Effect.gen(function* () {
+      if (yield* loadConfig(server)) yield* regenerate(server)
+    })
+  }
 
   return {
     name: 'wakusei-vite',
@@ -284,10 +293,7 @@ export function wakuseiVite(): any {
           scheduleChanges()
         }
       })
-      const start = Effect.gen(function* () {
-        if (yield* loadConfig(server)) yield* regenerate(server)
-      })
-      run(oneRunAtATime(start)).catch((error: unknown) => {
+      run(oneRunAtATime(start(server))).catch((error: unknown) => {
         console.error('❌ wakusei watch error:', error)
       })
     },
