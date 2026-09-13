@@ -13,10 +13,10 @@ autofixes markdownlint and textlint. oxfmt (`pnpm fix`) wraps Markdown prose and
 ## The README
 
 `README.md` is the user documentation: install, the quick start in both modes, the CLI, the Vite
-plugin, handler merge and the full config reference. It exists **twice, identically**: the root
-copy is what GitHub shows, `packages/wakusei/README.md` is what npm shows. Edit one and copy it
-over the other in the same change (`cmp README.md packages/wakusei/README.md` is silent when they
-match).
+plugin, handler merge and the full config reference. The file is `packages/wakusei/README.md`,
+which npm publishes with the package; the root `README.md` that GitHub shows is a symlink to it
+(`README.md -> packages/wakusei/README.md`). Edit the package file — never replace the symlink
+with a copy.
 
 - Links are absolute `https://github.com/...` / `https://...` URLs: a relative link breaks on npm.
 - A change to the config, the CLI or the Vite plugin updates the matching section — `CLI`,

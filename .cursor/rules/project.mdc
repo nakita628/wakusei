@@ -39,7 +39,7 @@ scripts/typespec.ts            fails when the @typespec/* packages in pnpm-lock.
 scripts/actionlint.ts          downloads a pinned actionlint, verifies its checksum, runs it
 scripts/zizmor.ts              downloads a pinned zizmor (workflow security audit), verifies it, runs it
 .github/workflows/test.yml     Test: build, unit tests, `vp run check` (every linter)
-README.md                      user docs; packages/wakusei/README.md is an identical copy
+README.md                      symlink to packages/wakusei/README.md, the user docs npm publishes
 assets/icon/wakusei.png        the logo at the top of the README (linked by absolute URL)
 ```
 
@@ -72,7 +72,7 @@ which part.
 
 - A behavior change ships with a test that fails before it and passes after.
 - A change to the config, the CLI, the Vite plugin or the generated output updates the README in
-  the same change (both copies; see the docs rule).
+  the same change (`packages/wakusei/README.md`; see the docs rule).
 - Report results as they are. Never call a task complete while hiding a failing command, and
   never make a check pass by weakening it.
 

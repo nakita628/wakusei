@@ -100,8 +100,8 @@ itself to, and its comments explain the choices.
   `dist/index.js`. `pack.entry` in `packages/wakusei/vite.config.ts` builds one file per entry
   (`.js` / `.d.ts` via `outExtensions`). Keep them in step.
 - There are no lifecycle scripts.
-- The package `README.md` is what npm shows; keep it identical to the root copy (see the docs
-  rule).
+- The package `README.md` is what npm shows, and the root `README.md` is a symlink to it (see the
+  docs rule).
 
 ## Releasing
 

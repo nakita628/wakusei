@@ -19,7 +19,7 @@ commit.
    respecting the layering. Both entry points reach it through `orpc()`; never special-case one.
 4. If the CLI should expose it, add the flag in `src/cli/index.ts` and pass it through
    `parseConfig`.
-5. Document it in the README (`Full Config Reference`, and `CLI` for a flag), both copies.
+5. Document it in `packages/wakusei/README.md` (`Full Config Reference`, and `CLI` for a flag).
 
 ## Fix a generator bug
 
