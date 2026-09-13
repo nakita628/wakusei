@@ -1,0 +1,26 @@
+packages:
+  - packages/*
+# TypeSpec ships every @typespec/* package in one release, so each workspace package takes its
+# version from this catalog (`"catalog:"`) and Renovate moves them together. Strict mode makes
+# `pnpm add` refuse a version outside the catalog.
+catalogMode: strict
+catalog:
+  '@typespec/compiler': ^1.16.0
+  '@typespec/http': ^1.16.0
+  '@typespec/openapi': ^1.16.0
+  '@typespec/openapi3': ^1.16.0
+  '@typespec/rest': ^0.86.0
+  '@typespec/versioning': ^0.86.0
+allowBuilds:
+  esbuild: false
+  # Optional native accelerator pulled in through oas-truth -> schema-to-library -> effect ->
+  # msgpackr; the JS fallback is enough, so its build script stays off.
+  msgpackr-extract: false
+minimumReleaseAgeExclude:
+  - oas-truth@0.4.0
+  - schema-to-library@0.5.0
+# @effect/platform-node pins effect to one release candidate but takes
+# @effect/platform-node-shared with a caret, which resolves to a later RC that imports
+# modules the pinned effect does not have. Keep the whole Effect set on one RC.
+overrides:
+  '@effect/platform-node-shared': 4.0.0-rc.112

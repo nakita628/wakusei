@@ -1,0 +1,30 @@
+{
+  "name": "wakusei-monorepo",
+  "private": true,
+  "license": "MIT",
+  "type": "module",
+  "scripts": {
+    "deps": "mkdir -p /tmp/pnpm-store && pnpm config set store-dir /tmp/pnpm-store &&rm -rf node_modules && rm -rf pnpm-lock.yaml && rm -rf ~/.pnpm-store && pnpm store prune && pnpm install --no-prefer-frozen-lockfile",
+    "check": "vp fmt --check && vp run -r check && pnpm lint",
+    "fix": "vp fmt && vp run -r check --fix && markdownlint-cli2 --fix && textlint --fix --ignore-path .gitignore '**/*.md' '.cursor/rules/*.mdc'",
+    "lint": "markdownlint-cli2 && textlint --ignore-path .gitignore '**/*.md' '.cursor/rules/*.mdc' && cspell --no-progress --dot '**' && secretlint '**/*' && node scripts/typespec.ts && node scripts/actionlint.ts -color && node scripts/zizmor.ts .github/workflows",
+    "test": "vp run --filter ./packages/wakusei test",
+    "coverage": "vp run --filter ./packages/wakusei coverage"
+  },
+  "devDependencies": {
+    "@secretlint/secretlint-rule-preset-recommend": "13.0.5",
+    "@textlint-rule/textlint-rule-no-unmatched-pair": "2.0.4",
+    "cspell": "10.2.2",
+    "markdownlint-cli2": "0.23.2",
+    "secretlint": "13.0.5",
+    "semver": "7.8.5",
+    "textlint": "15.8.0",
+    "textlint-filter-rule-comments": "1.3.0",
+    "textlint-rule-no-todo": "2.0.1",
+    "textlint-rule-terminology": "5.2.16",
+    "typescript": "6.0.3",
+    "vite-plus": "0.3.0",
+    "yaml": "2.9.0"
+  },
+  "packageManager": "pnpm@11.11.0"
+}

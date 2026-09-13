@@ -1,0 +1,39 @@
+name: Test
+
+# Builds, tests and checks the workspace with the same commands a developer runs locally: the root
+# `package.json` scripts are the repository's single definition of "clean", so CI and the working
+# copy can never disagree about what it means. `vp run check` is oxfmt, oxlint and the type check,
+# then `pnpm lint`: markdownlint, textlint, cspell, secretlint, the TypeSpec release check, and
+# actionlint and zizmor over these workflows (downloaded at a pinned, checksummed release).
+#
+# Actions are pinned to a commit digest, with the @vX.Y.Z tag kept as a comment.
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: voidzero-dev/setup-vp@9fd26ff49f9b5e6276c2b493da4454ad4527f7f4 # v1.20.0
+        with:
+          node-version: '22'
+          cache: true
+
+      - run: vp install --frozen-lockfile
+
+      - run: vp run wakusei#build
+
+      - run: vp run --filter ./packages/wakusei test
+
+      - run: vp run check

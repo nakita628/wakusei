@@ -1,0 +1,230 @@
+import { resolve } from 'node:path'
+import { pathToFileURL } from 'node:url'
+
+import { Effect, FileSystem, Schema, SchemaIssue } from 'effect'
+import type { FormatConfig } from 'oxfmt'
+
+/** Config file `wakusei` picks up from the working directory when `--config` is omitted. */
+export const DEFAULT_CONFIG_FILE = 'wakusei.config.ts'
+
+/** Every `components.*` key other than `output`, the single-file aggregate. */
+const COMPONENT_KINDS = [
+  'schemas',
+  'responses',
+  'parameters',
+  'headers',
+  'examples',
+  'requestBodies',
+  'securitySchemes',
+  'links',
+  'callbacks',
+  'pathItems',
+  'mediaTypes',
+] as const
+
+/**
+ * `Schema.TemplateLiteral` carries the literal type but its rejection reads "Expected a
+ * string matching template literal parts"; `Schema.declare` over the same guard keeps the
+ * type on both sides — so `defineConfig` still rejects a wrong extension while you type —
+ * and lets the message say which extensions are meant.
+ */
+const InputSchema = Schema.declare<`${string}.yaml` | `${string}.json` | `${string}.tsp`>(
+  Schema.is(Schema.TemplateLiteral([Schema.String, Schema.Literals(['.yaml', '.json', '.tsp'])])),
+  { message: 'must be .yaml | .json | .tsp' },
+).annotate({
+  title: 'Input document',
+  description: 'OpenAPI or TypeSpec entry document.',
+  examples: ['openapi.yaml', './spec/main.tsp'],
+})
+
+const TypeScriptPathSchema = Schema.declare<`${string}.ts`>(
+  Schema.is(Schema.TemplateLiteral([Schema.NonEmptyString, '.ts'])),
+  { message: 'must be .ts file' },
+)
+
+const DirectorySchema = Schema.String.check(
+  Schema.isPattern(/^(?!.*\.ts$).+/u, { message: 'must be a directory, not a .ts file' }),
+)
+
+/** An `export*` flag: off unless the config turns it on. */
+const FlagSchema = Schema.Boolean.pipe(Schema.withDecodingDefaultKey(Effect.succeed(false)))
+
+const ComponentSchema = Schema.Struct({
+  output: Schema.NonEmptyString,
+  import: Schema.optionalKey(Schema.String),
+})
+
+const ComponentsSchema = Schema.Struct({
+  output: Schema.optionalKey(TypeScriptPathSchema),
+  schemas: Schema.optionalKey(
+    Schema.Struct({ ...ComponentSchema.fields, split: Schema.optionalKey(Schema.Boolean) }),
+  ),
+  responses: Schema.optionalKey(ComponentSchema),
+  parameters: Schema.optionalKey(ComponentSchema),
+  headers: Schema.optionalKey(ComponentSchema),
+  examples: Schema.optionalKey(ComponentSchema),
+  requestBodies: Schema.optionalKey(ComponentSchema),
+  securitySchemes: Schema.optionalKey(ComponentSchema),
+  links: Schema.optionalKey(ComponentSchema),
+  callbacks: Schema.optionalKey(ComponentSchema),
+  pathItems: Schema.optionalKey(ComponentSchema),
+  mediaTypes: Schema.optionalKey(ComponentSchema),
+}).check(
+  Schema.makeFilter(
+    (components) =>
+      components.output === undefined ||
+      COMPONENT_KINDS.every((kind) => components[kind] === undefined),
+    {
+      message:
+        'components.output is mutually exclusive with per-type component outputs (schemas, responses, parameters, ...). Use output for single-file mode, or per-type fields for split mode.',
+    },
+  ),
+)
+
+/** Fields both modes share. `template` belongs to the contract variant alone. */
+const sharedFields = {
+  input: InputSchema,
+  format: Schema.optionalKey(
+    Schema.declare<FormatConfig>(
+      (u): u is FormatConfig => typeof u === 'object' && u !== null && !Array.isArray(u),
+      {
+        message: 'must be an oxfmt FormatConfig object',
+        description: 'oxfmt `FormatConfig` applied to every generated file.',
+      },
+    ),
+  ),
+  output: Schema.NonEmptyString.annotate({
+    description: 'Base directory of the generated tree, or a `.ts` file for single-file output.',
+  }),
+  readonly: FlagSchema,
+  pathAlias: Schema.optionalKey(Schema.String),
+  schema: Schema.Literals(['zod', 'valibot', 'arktype']).pipe(
+    Schema.withDecodingDefaultKey(Effect.succeed('zod' as const)),
+  ),
+  prefix: Schema.optionalKey(Schema.String),
+  exportSchemas: FlagSchema,
+  exportSchemasTypes: FlagSchema,
+  exportResponses: FlagSchema,
+  exportParameters: FlagSchema,
+  exportParametersTypes: FlagSchema,
+  exportExamples: FlagSchema,
+  exportRequestBodies: FlagSchema,
+  exportHeaders: FlagSchema,
+  exportHeadersTypes: FlagSchema,
+  exportSecuritySchemes: FlagSchema,
+  exportLinks: FlagSchema,
+  exportCallbacks: FlagSchema,
+  exportPathItems: FlagSchema,
+  exportMediaTypes: FlagSchema,
+  exportMediaTypesTypes: FlagSchema,
+  components: Schema.optionalKey(ComponentsSchema),
+}
+
+/**
+ * `mode` pins each member, so a config is checked against the variant it names: a
+ * `server` config that sets `template` fails on `template`, not on `mode`.
+ */
+const ConfigSchema = Schema.Union([
+  Schema.Struct({ mode: Schema.Literal('server'), ...sharedFields }),
+  Schema.Struct({
+    mode: Schema.Literal('contract'),
+    ...sharedFields,
+    template: Schema.optionalKey(Schema.Struct({ output: Schema.optionalKey(DirectorySchema) })),
+  }),
+]).annotate({ title: 'wakusei config' })
+
+/** A validated config: every flag and the schema library filled in. */
+export type Config = typeof ConfigSchema.Type
+
+/**
+ * The config file is missing, will not import, or does not validate.
+ *
+ * `notFound` separates "there is no config here" from "the config here is wrong": only
+ * the first is the caller who ran `wakusei` with nothing and needs the usage.
+ */
+// oxlint-disable-next-line unicorn/throw-new-error -- `Schema.TaggedError()` is the class factory, not a throw
+export class ConfigError extends Schema.TaggedError<ConfigError>()('ConfigError', {
+  message: Schema.String,
+  notFound: Schema.optionalKey(Schema.Boolean),
+}) {}
+
+// Built once and reused at the edge rather than per call. Unknown keys are rejected: a
+// misspelled field would otherwise be dropped silently and its generator never run.
+const decodeConfig = Schema.decodeUnknownEffect(ConfigSchema, { onExcessProperty: 'error' })
+// A union no member matches reports every member's shape. `mode` is what picks the member,
+// so it is decoded on its own first and a missing or unknown mode reads as one field.
+const decodeMode = Schema.decodeUnknownEffect(
+  Schema.Struct({ mode: Schema.Literals(['server', 'contract']) }),
+)
+const formatIssue = SchemaIssue.makeFormatterStandardSchemaV1()
+
+/**
+ * Validates an already-loaded config object. The first issue is reported as
+ * `<a.b.c>: <message>`: a config is written by hand, so naming the field matters more
+ * than listing every consequence of it.
+ */
+export function parseConfig(config: unknown) {
+  return decodeMode(config).pipe(
+    Effect.andThen(decodeConfig(config)),
+    Effect.mapError((error) => {
+      const issue = formatIssue(error.issue).issues[0]
+      const path = (issue?.path ?? [])
+        .map((segment) => String(typeof segment === 'object' ? segment.key : segment))
+        .join('.')
+      const prefix = path === '' ? '' : `${path}: `
+      return new ConfigError({ message: `Invalid config: ${prefix}${issue?.message ?? ''}` })
+    }),
+  )
+}
+
+// A module specifier is imported once per process, so a reload of the same config file
+// would get the copy from before the edit. The counter makes each reload a new specifier.
+let reloadCount = 0
+
+/**
+ * Loads and validates a config file, resolved against the current directory. `reload`
+ * re-reads a config that has already been imported.
+ */
+export function readConfig(configPath: string = DEFAULT_CONFIG_FILE, reload = false) {
+  return Effect.gen(function* () {
+    const fs = yield* FileSystem.FileSystem
+    const abs = resolve(process.cwd(), configPath)
+    // Checked before importing so a missing file reads as "no config here" rather than
+    // as whatever the module loader throws.
+    const found = yield* fs
+      .exists(abs)
+      .pipe(Effect.catchTag('PlatformError', () => Effect.succeed(false)))
+    if (!found) {
+      return yield* new ConfigError({
+        message: `Config not found: ${abs}\nCreate ${DEFAULT_CONFIG_FILE} in the current directory, or pass <input>. See https://github.com/nakita628/wakusei#full-config-reference for an example.`,
+        notFound: true,
+      })
+    }
+    const href = pathToFileURL(abs).href
+    const specifier = reload ? `${href}?reload=${String((reloadCount += 1))}` : href
+    const mod: unknown = yield* Effect.tryPromise({
+      // The specifier is a runtime file URL, so a bundler's import analysis has nothing
+      // to resolve.
+      try: () => import(/* @vite-ignore */ specifier),
+      catch: (error) =>
+        new ConfigError({ message: error instanceof Error ? error.message : String(error) }),
+    })
+    // `'default' in mod` is what narrows `mod` for TypeScript; `export default undefined`
+    // leaves the key present, which is why both halves are here.
+    if (
+      typeof mod !== 'object' ||
+      mod === null ||
+      !('default' in mod) ||
+      mod.default === undefined
+    ) {
+      return yield* new ConfigError({
+        message: `Config must export default object from ${abs}\nDid you forget \`export default defineConfig({ ... })\`?`,
+      })
+    }
+    return yield* parseConfig(mod.default)
+  })
+}
+
+export function defineConfig(config: typeof ConfigSchema.Encoded) {
+  return config
+}

@@ -1,0 +1,46 @@
+{
+  // markdownlint owns the *structure* of the Markdown (headings, lists, tables, fences);
+  // textlint owns the prose and cspell the spelling, so the three never overlap.
+  //
+  // Every default rule is on. A rule that does not fit this repository is turned off here
+  // with the reason next to it, never left silently unset.
+  "config": {
+    "default": true,
+
+    // MD013 (line-length) is off: a table row cannot wrap, and the README's config reference
+    // is wider than any prose limit. Prose width is oxfmt's job (`pnpm fix`), not a linter's.
+    "MD013": false,
+
+    // The same heading may repeat under different parents. Only siblings are a real duplicate.
+    "MD024": { "siblings_only": true },
+
+    // Ordered lists count 1. 2. 3. — the shape oxfmt writes — rather than all-ones.
+    "MD029": { "style": "ordered" },
+
+    // Every fenced block declares a language so GitHub highlights it and a reader can tell
+    // `ts` from `bash` at a glance. The list is closed on purpose: a typo like `typescript`
+    // vs `ts` would otherwise split the highlighting between two spellings. `tsp` is TypeSpec.
+    "MD040": {
+      "allowed_languages": [
+        "ts",
+        "tsp",
+        "js",
+        "json",
+        "jsonc",
+        "yaml",
+        "yml",
+        "bash",
+        "sh",
+        "text",
+        "diff",
+        "md",
+      ],
+    },
+  },
+
+  // The Cursor rules (.cursor/rules/*.mdc) are Markdown with front matter, and they are the
+  // instructions this repository is operated by, so they are held to the same standard.
+  // `gitignore: true` drops node_modules, dist and coverage, so this never drifts from .gitignore.
+  "globs": ["**/*.md", ".cursor/rules/*.mdc"],
+  "gitignore": true,
+}

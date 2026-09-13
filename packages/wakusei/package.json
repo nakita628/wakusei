@@ -1,0 +1,57 @@
+{
+  "name": "wakusei",
+  "version": "0.0.1",
+  "private": true,
+  "description": "OpenAPI/TypeSpec to oRPC code generator",
+  "keywords": [
+    "codegen",
+    "openapi",
+    "orpc",
+    "typespec"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/nakita628/wakusei.git"
+  },
+  "bin": {
+    "wakusei": "dist/index.js"
+  },
+  "files": [
+    "dist"
+  ],
+  "type": "module",
+  "exports": {
+    "./config": {
+      "types": "./dist/config/index.d.ts",
+      "import": "./dist/config/index.js"
+    },
+    "./vite-plugin": {
+      "types": "./dist/vite-plugin/index.d.ts",
+      "import": "./dist/vite-plugin/index.js"
+    }
+  },
+  "scripts": {
+    "build": "vp pack",
+    "check": "vp check",
+    "fix": "vp check --fix",
+    "test": "vp test",
+    "coverage": "vp test --coverage"
+  },
+  "dependencies": {
+    "@apidevtools/swagger-parser": "^12.1.0",
+    "@effect/platform-node": "4.0.0-rc.112",
+    "@typespec/compiler": "catalog:",
+    "@typespec/openapi3": "catalog:",
+    "effect": "4.0.0-rc.112",
+    "oas-truth": "^0.4.0",
+    "oxfmt": "^0.51.0",
+    "ts-morph": "^28.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^25.9.1",
+    "@typespec/http": "catalog:",
+    "@typespec/openapi": "catalog:",
+    "@typespec/rest": "catalog:",
+    "@typespec/versioning": "catalog:"
+  }
+}
