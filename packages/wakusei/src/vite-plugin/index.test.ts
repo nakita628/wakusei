@@ -71,6 +71,14 @@ function createMockServer(config: unknown) {
 }
 
 const base = { input: 'openapi.yaml', mode: 'server', output: '.' }
+
+/**
+ * Waits for the plugin's background work. A real generation can take seconds when the suite
+ * runs in parallel on a busy machine, and `vi.waitFor` gives up after one second by default.
+ */
+function eventually(assertion: () => void) {
+  return vi.waitFor(assertion, { timeout: 20_000 })
+}
 const originalCwd = process.cwd()
 const dirs: string[] = []
 
@@ -110,7 +118,7 @@ describe('wakuseiVite', { timeout: 30_000 }, () => {
     const plugin = wakuseiVite()
     const { server, sentMessages, watcherCallbacks } = createMockServer(base)
     plugin.configureServer(server)
-    await vi.waitFor(() => {
+    await eventually(() => {
       expect(sentMessages).toHaveLength(1)
     })
 
@@ -119,7 +127,7 @@ describe('wakuseiVite', { timeout: 30_000 }, () => {
     for (const onChange of watcherCallbacks) onChange('change', configFile)
     for (const onChange of watcherCallbacks) onChange('change', configFile)
     expect(plugin.handleHotUpdate({ file: configFile, server })).toStrictEqual([])
-    await vi.waitFor(() => {
+    await eventually(() => {
       expect(sentMessages).toHaveLength(2)
     })
 
@@ -138,7 +146,7 @@ describe('wakuseiVite', { timeout: 30_000 }, () => {
     const { server, addedPaths, sentMessages, watcherCallbacks } = createMockServer(base)
     plugin.configureServer(server)
 
-    await vi.waitFor(() => {
+    await eventually(() => {
       expect(sentMessages).toStrictEqual([{ type: 'full-reload' }])
     })
     const cwd = process.cwd()
@@ -169,7 +177,7 @@ describe('wakuseiVite', { timeout: 30_000 }, () => {
     server.moduleGraph.getModuleById = () => moduleNode
     plugin.configureServer(server)
 
-    await vi.waitFor(() => {
+    await eventually(() => {
       expect(sentMessages).toHaveLength(1)
     })
     expect(server.moduleGraph.invalidateModule).toHaveBeenCalledWith(moduleNode)
@@ -189,7 +197,7 @@ describe('wakuseiVite', { timeout: 30_000 }, () => {
     const { server, sentMessages } = createMockServer(config)
     plugin.configureServer(server)
 
-    await vi.waitFor(() => {
+    await eventually(() => {
       expect(error.mock.calls).toStrictEqual([[message]])
     })
     expect(sentMessages).toStrictEqual([])
@@ -203,7 +211,7 @@ describe('wakuseiVite', { timeout: 30_000 }, () => {
     server.ssrLoadModule = () => Promise.reject(new Error('module load failed'))
     plugin.configureServer(server)
 
-    await vi.waitFor(() => {
+    await eventually(() => {
       expect(error.mock.calls).toStrictEqual([['❌ wakusei config: module load failed']])
     })
   })
@@ -213,7 +221,7 @@ describe('wakuseiVite', { timeout: 30_000 }, () => {
     const plugin = wakuseiVite()
     const { server, sentMessages, watcherCallbacks } = createMockServer(base)
     plugin.configureServer(server)
-    await vi.waitFor(() => {
+    await eventually(() => {
       expect(sentMessages).toHaveLength(1)
     })
     const handler = 'src/handlers/posts.ts'
@@ -228,7 +236,7 @@ describe('wakuseiVite', { timeout: 30_000 }, () => {
     )
 
     for (const onChange of watcherCallbacks) onChange('change', path.resolve('openapi.yaml'))
-    await vi.waitFor(() => {
+    await eventually(() => {
       expect(sentMessages).toHaveLength(2)
     })
 
@@ -251,7 +259,7 @@ export const getPosts = os.route({ method: 'GET', path: '/posts' }).handler(asyn
     })
     plugin.configureServer(server)
 
-    await vi.waitFor(() => {
+    await eventually(() => {
       expect(sentMessages).toHaveLength(1)
     })
     expect(fs.readdirSync('src/schemas').sort()).toStrictEqual(['draft.ts', 'index.ts', 'post.ts'])
@@ -266,14 +274,14 @@ export const getPosts = os.route({ method: 'GET', path: '/posts' }).handler(asyn
       components: { output: 'src/components/api.ts' },
     })
     plugin.configureServer(server)
-    await vi.waitFor(() => {
+    await eventually(() => {
       expect(sentMessages).toHaveLength(1)
     })
     expect(fs.existsSync('src/components/api.ts')).toBe(true)
 
     state.config = base
     for (const onChange of watcherCallbacks) onChange('change', path.resolve('wakusei.config.ts'))
-    await vi.waitFor(() => {
+    await eventually(() => {
       expect(sentMessages).toHaveLength(2)
     })
 

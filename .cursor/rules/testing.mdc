@@ -48,8 +48,9 @@ type-aware lint sees the default lib there: sort a fresh array with `.sort()`, n
   dev server, so it proves what lands on disk (a handler body surviving a regeneration).
   `vite-plugin/concurrency.test.ts` mocks `../core/index.js` with a deliberately slow first run,
   because only a run held open can show whether a second one starts beside it. Background work is
-  awaited with `vi.waitFor` on its observable result, never a fixed sleep in the test, and must
-  finish before the test ends or its writes and log lines land in the next test.
+  awaited with `eventually` (`vi.waitFor` with a 20s timeout — its 1s default is too short for a
+  real generation under a parallel run) on its observable result, never a fixed sleep in the test,
+  and must finish before the test ends or its writes and log lines land in the next test.
 - The CLI suite runs `wakusei(argv, entryUrl)` with a recording `Console`, so it asserts exactly
   what a user sees on stdout and stderr.
 

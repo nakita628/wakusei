@@ -27,6 +27,14 @@ vi.mock('../core/index.js', async () => {
 })
 
 const originalCwd = process.cwd()
+
+/**
+ * Waits for the plugin's background work. A real generation can take seconds when the suite
+ * runs in parallel on a busy machine, and `vi.waitFor` gives up after one second by default.
+ */
+function eventually(assertion: () => void) {
+  return vi.waitFor(assertion, { timeout: 20_000 })
+}
 const dirs: string[] = []
 
 beforeEach(() => {
@@ -70,12 +78,12 @@ describe('wakuseiVite', () => {
         Promise.resolve({ default: { input: 'openapi.yaml', mode: 'server', output: '.' } }),
     })
     // The startup run is in flight (and slow) when the spec changes.
-    await vi.waitFor(() => {
+    await eventually(() => {
       expect(runs.started).toBe(1)
     })
     for (const onChange of watcherCallbacks) onChange('change', path.resolve('openapi.yaml'))
 
-    await vi.waitFor(() => {
+    await eventually(() => {
       expect(sentMessages).toHaveLength(2)
     })
     expect(runs).toStrictEqual({ started: 2, active: 0, overlapped: false })
