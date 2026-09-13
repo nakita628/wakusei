@@ -1,17 +1,13 @@
 packages:
   - packages/*
   - test
-# TypeSpec ships every @typespec/* package in one release, so each workspace package takes its
-# version from this catalog (`"catalog:"`) and Renovate moves them together. Strict mode makes
-# `pnpm add` refuse a version outside the catalog.
+# The e2e TypeSpec document imports @typespec/http. Everything else TypeSpec
+# (compiler, openapi3, …) is oas-truth's peer, not a wakusei dependency.
+# Strict mode makes `pnpm add` refuse a version outside the catalog; only
+# `@typespec/*` belongs here, so move anything else back to its package.json.
 catalogMode: strict
 catalog:
-  '@typespec/compiler': ^1.16.0
   '@typespec/http': ^1.16.0
-  '@typespec/openapi': ^1.16.0
-  '@typespec/openapi3': ^1.16.0
-  '@typespec/rest': ^0.86.0
-  '@typespec/versioning': ^0.86.0
 allowBuilds:
   esbuild: false
   # Optional native accelerator pulled in through oas-truth -> schema-to-library -> effect ->

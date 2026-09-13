@@ -6,24 +6,9 @@ settings:
 
 catalogs:
   default:
-    '@typespec/compiler':
-      specifier: ^1.16.0
-      version: 1.16.0
     '@typespec/http':
       specifier: ^1.16.0
       version: 1.16.0
-    '@typespec/openapi':
-      specifier: ^1.16.0
-      version: 1.16.0
-    '@typespec/openapi3':
-      specifier: ^1.16.0
-      version: 1.16.0
-    '@typespec/rest':
-      specifier: ^0.86.0
-      version: 0.86.0
-    '@typespec/versioning':
-      specifier: ^0.86.0
-      version: 0.86.0
 
 overrides:
   '@effect/platform-node-shared': 4.0.0-rc.112
@@ -77,12 +62,6 @@ importers:
       '@effect/platform-node':
         specifier: 4.0.0-rc.112
         version: 4.0.0-rc.112(effect@4.0.0-rc.112)(redis@6.2.1)
-      '@typespec/compiler':
-        specifier: 'catalog:'
-        version: 1.16.0(@types/node@25.9.6)
-      '@typespec/openapi3':
-        specifier: 'catalog:'
-        version: 1.16.0(@typespec/compiler@1.16.0(@types/node@25.9.6))(@typespec/http@1.16.0(@typespec/compiler@1.16.0(@types/node@25.9.6)))(@typespec/openapi@1.16.0(@typespec/compiler@1.16.0(@types/node@25.9.6))(@typespec/http@1.16.0(@typespec/compiler@1.16.0(@types/node@25.9.6))))(@typespec/versioning@0.86.0(@typespec/compiler@1.16.0(@types/node@25.9.6)))
       effect:
         specifier: 4.0.0-rc.112
         version: 4.0.0-rc.112
@@ -99,18 +78,6 @@ importers:
       '@types/node':
         specifier: ^25.9.1
         version: 25.9.6
-      '@typespec/http':
-        specifier: 'catalog:'
-        version: 1.16.0(@typespec/compiler@1.16.0(@types/node@25.9.6))
-      '@typespec/openapi':
-        specifier: 'catalog:'
-        version: 1.16.0(@typespec/compiler@1.16.0(@types/node@25.9.6))(@typespec/http@1.16.0(@typespec/compiler@1.16.0(@types/node@25.9.6)))
-      '@typespec/rest':
-        specifier: 'catalog:'
-        version: 0.86.0(@typespec/compiler@1.16.0(@types/node@25.9.6))(@typespec/http@1.16.0(@typespec/compiler@1.16.0(@types/node@25.9.6)))
-      '@typespec/versioning':
-        specifier: 'catalog:'
-        version: 0.86.0(@typespec/compiler@1.16.0(@types/node@25.9.6))
 
   test:
     devDependencies:
@@ -1618,13 +1585,6 @@ packages:
 
   '@typespec/openapi@1.16.0':
     resolution: {integrity: sha512-6F+3e1dOJkIV4K0vCsuDpdwxoXnsT6eOomd4MpIUJAwyA7etEraUmPM9Qstp42MLIBoPWm9dK4Y9Whxtohc/KA==}
-    engines: {node: '>=22.0.0'}
-    peerDependencies:
-      '@typespec/compiler': ^1.16.0
-      '@typespec/http': ^1.16.0
-
-  '@typespec/rest@0.86.0':
-    resolution: {integrity: sha512-Lbl4x/ZW26r4ZsxpgvS7T3F998J7pvyDs+OsHgVKDI45EvPmdDydI4TKOH++UmHJ2tH8kw8KHzMPqCehWLIa6g==}
     engines: {node: '>=22.0.0'}
     peerDependencies:
       '@typespec/compiler': ^1.16.0
@@ -4735,14 +4695,10 @@ snapshots:
       '@typespec/compiler': 1.16.0(@types/node@25.9.6)
       '@typespec/http': 1.16.0(@typespec/compiler@1.16.0(@types/node@25.9.6))
 
-  '@typespec/rest@0.86.0(@typespec/compiler@1.16.0(@types/node@25.9.6))(@typespec/http@1.16.0(@typespec/compiler@1.16.0(@types/node@25.9.6)))':
-    dependencies:
-      '@typespec/compiler': 1.16.0(@types/node@25.9.6)
-      '@typespec/http': 1.16.0(@typespec/compiler@1.16.0(@types/node@25.9.6))
-
   '@typespec/versioning@0.86.0(@typespec/compiler@1.16.0(@types/node@25.9.6))':
     dependencies:
       '@typespec/compiler': 1.16.0(@types/node@25.9.6)
+    optional: true
 
   '@vitest/browser-preview@4.1.11(vite@8.3.0(@types/node@25.9.6)(yaml@2.9.0))(vitest@4.1.11)':
     dependencies:

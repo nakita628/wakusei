@@ -82,19 +82,17 @@ itself to, and its comments explain the choices.
   schema-to-library uses; `@effect/platform-node-shared` is forced to the same one by `overrides` in
   `pnpm-workspace.yaml` (its caret range would otherwise resolve a later RC that imports modules
   the pinned `effect` lacks). They move together, in one change.
-- The `@typespec/*` packages move together, to one TypeSpec release. Their versions live **only**
-  in the strict `catalog` of `pnpm-workspace.yaml`; a `package.json` says `"catalog:"`, and
-  `pnpm pack` / `pnpm publish` write the catalog range into the published manifest.
-  `catalogMode: strict` makes `pnpm add` refuse a version outside the catalog, and writes a new
-  package into it: only `@typespec/*` belongs there, so move anything else back to a version in its
-  `package.json`. `@typespec/openapi` is a devDependency only so the peer of `@typespec/openapi3`
-  follows the catalog.
 - `oas-truth` is the generator's core; a bump changes generated output, so read the diff of the
   test expectations rather than updating them blindly. A version newer than pnpm's minimum
   release age goes into `minimumReleaseAgeExclude`, and comes out once it is old enough.
-  OpenAPI parsing is `oas-truth`'s `parseOpenAPI`. Do not add `@apidevtools/swagger-parser`
-  (or another OpenAPI parser) as a wakusei dependency — it is oas-truth's peer, and wakusei
-  never imports it.
+  OpenAPI and TypeSpec parsing are `oas-truth`'s `parseOpenAPI`. Do not add
+  `@apidevtools/swagger-parser` or `@typespec/*` as a wakusei dependency — they are
+  oas-truth's peers, and wakusei never imports them.
+- The `@typespec/*` packages that remain in this repository (today `@typespec/http`, for
+  the e2e TypeSpec document) take their version from the strict `catalog` of
+  `pnpm-workspace.yaml`. `catalogMode: strict` makes `pnpm add` refuse a version outside
+  the catalog, and writes a new package into it: only `@typespec/*` belongs there, so move
+  anything else back to a version in its `package.json`.
 - `typescript` is a root devDependency because `vp pack` needs it to emit the `.d.ts` files.
 - The package's runtime `dependencies` are what every user installs. Adding one is a design
   decision — ask first. Tooling goes in `devDependencies`.
@@ -128,8 +126,8 @@ passes on a push to `main` and, from the exact commit Test ran on:
    version with no tag, or a tag on another commit, stops with an error that says what to do;
 3. **publish** — only when npm lacks the version: build, then `pnpm publish` through npm Trusted
    Publishing (OIDC, `id-token: write`, environment `release`), so no npm token is stored.
-   `pnpm publish` writes the `catalog:` ranges into the published manifest; `npm publish` does not,
-   and a manifest with `catalog:` in it cannot be installed;
+   `pnpm publish` writes any `catalog:` ranges into the published manifest; `npm publish` does
+   not, and a manifest with `catalog:` in it cannot be installed;
 4. **release** — creates the GitHub release for the tag with generated notes.
 
 Rules that follow:

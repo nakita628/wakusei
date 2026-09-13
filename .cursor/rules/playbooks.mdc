@@ -106,7 +106,8 @@ For a change to the generated code, the merge, the CLI or the Vite plugin:
 ## Bump TypeSpec
 
 1. Change every `@typespec/*` entry in the `catalog` of `pnpm-workspace.yaml` to the new release
-   (1.x and 0.x together), never a `package.json`.
+   (today `@typespec/http`), never a `package.json`. oas-truth's TypeSpec peers
+   (`@typespec/compiler`, `@typespec/openapi3`) follow that release through the lockfile.
 2. `pnpm install`, then `node scripts/typespec.ts` (also part of `pnpm lint`): it fails until
    `pnpm-lock.yaml` holds one release, and prints the `pnpm update` that re-resolves the stragglers.
 3. `pnpm test`: TypeSpec input is compiled for real, so read any changed expectation.
