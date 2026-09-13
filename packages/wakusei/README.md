@@ -1,6 +1,6 @@
 # Wakusei
 
-![Wakusei logo](https://github.com/nakita628/wakusei/blob/main/assets/icon/wakusei.png)
+![Wakusei logo](https://raw.githubusercontent.com/nakita628/wakusei/refs/heads/main/assets/icon/wakusei.png)
 
 ```bash
 npm install -D wakusei
@@ -21,6 +21,22 @@ Passing `-o <file>.ts` generates a single [`@orpc/contract`](https://orpc.dev/) 
 
 ```bash
 npx wakusei openapi.yaml -o output.ts
+```
+
+### Configuration file
+
+```ts
+import { defineConfig } from 'wakusei'
+
+export default defineConfig({
+  input: 'openapi.yaml',
+  mode: 'server',
+  output: '.',
+})
+```
+
+```bash
+npx wakusei
 ```
 
 ### Contract Mode
@@ -172,6 +188,10 @@ New routes are added as stubs. Deleted routes are removed, and a handler file no
 
 ## Full Config Reference
 
+`mode: 'server'` writes `@orpc/server` procedures; `mode: 'contract'` writes an `@orpc/contract` router. `template` is contract-only. `components.output` (one aggregate file) is mutually exclusive with the per-type fields (`schemas`, `responses`, ...).
+
+`pathAlias`, `prefix` and `components.*.import` are checked here because they are spliced into the generated code verbatim: a quote, a backslash or whitespace would close a `'...'` literal early.
+
 ```ts
 // wakusei.config.ts
 import { defineConfig } from 'wakusei'
@@ -201,13 +221,11 @@ export default defineConfig({
   // Add 'as const' to generated component objects
   readonly: false,
 
-  // Prefix for all generated route paths (e.g. '/api/v1'). No whitespace or quotes:
-  // the value is interpolated into generated source.
+  // Prefix prepended to every generated route path
   // prefix: '/api/v1',
 
-  // Import path alias for the generated `src` directory. Schema/component imports
+  // Import prefix for the generated `src` directory. Schema and component imports
   // resolve against it so they are import-site independent (e.g. '@/components').
-  // No whitespace or quotes: the value is interpolated into generated source.
   // pathAlias: '@/',
 
   // Export component flags (OpenAPI Components Object). A flagged kind is generated;
@@ -235,15 +253,15 @@ export default defineConfig({
 
     // Schemas (OpenAPI components.schemas). Default: 'src/components/index.ts' when no
     // other kind is generated, 'src/components/schemas.ts' otherwise. `split` emits one
-    // file per schema under `output`, and `import` overrides the path handlers use.
+    // file per schema under `output`, and `import` overrides the specifier handlers use.
     schemas: {
-      output: 'src/schemas', // Output directory (or file) for schemas
-      split: true, // Generate one file per schema
-      import: '@/schemas', // Module specifier handlers use; no whitespace or quotes
+      output: 'src/schemas',
+      split: true,
+      import: '@/schemas',
     },
     responses: {
-      output: 'src/components/responses.ts', // Output file path
-      import: '@/schemas', // Import path for schema references
+      output: 'src/components/responses.ts',
+      import: '@/schemas',
     },
     parameters: {
       output: 'src/components/parameters.ts',

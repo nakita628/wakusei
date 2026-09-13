@@ -211,6 +211,23 @@ export const contract = {
     })
   })
 
+  it('names a pathAlias that would break a generated import', async () => {
+    useTmpDir({
+      'openapi.yaml': SPEC,
+      'wakusei.config.ts':
+        "export default { input: 'openapi.yaml', mode: 'server', output: '.', pathAlias: 'foo bar' }\n",
+    })
+
+    const result = await runCli([])
+
+    expect(result).toStrictEqual({
+      ok: false,
+      stdout: '',
+      stderr:
+        '\nERROR\n  Invalid config: pathAlias: must be an import prefix, with no whitespace or quotes',
+    })
+  })
+
   it('reports a generation failure', async () => {
     useTmpDir({
       'wakusei.config.ts':

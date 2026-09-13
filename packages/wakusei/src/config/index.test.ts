@@ -89,6 +89,25 @@ describe('parseConfig', () => {
     expect(await parse(config)).toStrictEqual({ ...config, ...defaults })
   })
 
+  it.each(['../schemas', '.', '#schemas', '~/lib'])(
+    'accepts import specifier %s',
+    async (value) => {
+      const config = {
+        ...base,
+        components: { schemas: { output: 'src/schemas.ts', import: value } },
+      }
+      expect(await parse(config)).toStrictEqual({ ...config, ...defaults })
+    },
+  )
+
+  it.each(['@/', '~/', '#'])('accepts pathAlias %s', async (pathAlias) => {
+    expect(await parse({ ...base, pathAlias })).toStrictEqual({ ...base, pathAlias, ...defaults })
+  })
+
+  it.each(['/api/v1', '/v1', '/'])('accepts prefix %s', async (prefix) => {
+    expect(await parse({ ...base, prefix })).toStrictEqual({ ...base, prefix, ...defaults })
+  })
+
   it.each([
     ['a missing mode', { input: 'openapi.yaml', output: '.' }, 'mode: Missing key'],
     ['an unknown mode', { ...base, mode: 'invalid' }, 'mode: Expected "server" | "contract"'],
@@ -171,6 +190,46 @@ describe('parseConfig', () => {
       'a prefix with a quote',
       { ...base, prefix: "/api/'v1" },
       'prefix: must be a path prefix, with no whitespace or quotes',
+    ],
+    [
+      'a prefix with whitespace',
+      { ...base, prefix: '/api /v1' },
+      'prefix: must be a path prefix, with no whitespace or quotes',
+    ],
+    [
+      'an empty pathAlias',
+      { ...base, pathAlias: '' },
+      'pathAlias: must be an import prefix, with no whitespace or quotes',
+    ],
+    [
+      'an empty prefix',
+      { ...base, prefix: '' },
+      'prefix: must be a path prefix, with no whitespace or quotes',
+    ],
+    [
+      'an empty components import',
+      { ...base, components: { schemas: { output: 'src/schemas.ts', import: '' } } },
+      'components.schemas.import: must be a module specifier, with no whitespace or quotes',
+    ],
+    [
+      'a components import with a quote',
+      { ...base, components: { schemas: { output: 'src/schemas.ts', import: "foo'bar" } } },
+      'components.schemas.import: must be a module specifier, with no whitespace or quotes',
+    ],
+    [
+      'a pathAlias with a backslash',
+      { ...base, pathAlias: 'foo\\bar' },
+      'pathAlias: must be an import prefix, with no whitespace or quotes',
+    ],
+    [
+      'a pathAlias with a backtick',
+      { ...base, pathAlias: 'foo`bar' },
+      'pathAlias: must be an import prefix, with no whitespace or quotes',
+    ],
+    [
+      'a pathAlias with a newline',
+      { ...base, pathAlias: 'foo\nbar' },
+      'pathAlias: must be an import prefix, with no whitespace or quotes',
     ],
   ])('rejects %s', async (_, config, message) => {
     expect(await parseError(config)).toBe(`Invalid config: ${message}`)
