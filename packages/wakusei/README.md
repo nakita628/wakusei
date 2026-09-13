@@ -23,22 +23,6 @@ Passing `-o <file>.ts` generates a single [`@orpc/contract`](https://orpc.dev/) 
 npx wakusei openapi.yaml -o output.ts
 ```
 
-### Configuration file
-
-```ts
-import { defineConfig } from 'wakusei'
-
-export default defineConfig({
-  input: 'openapi.yaml',
-  mode: 'server',
-  output: '.',
-})
-```
-
-```bash
-npx wakusei
-```
-
 ### Contract Mode
 
 input:
@@ -188,7 +172,7 @@ New routes are added as stubs. Deleted routes are removed, and a handler file no
 
 ## Full Config Reference
 
-`mode: 'server'` writes `@orpc/server` procedures; `mode: 'contract'` writes an `@orpc/contract` router. `template` is contract-only. `components.output` (one aggregate file) is mutually exclusive with the per-type fields (`schemas`, `responses`, ...).
+`mode: 'contract'` writes an `@orpc/contract` router; `template` opts into `implement(contract)` stubs (rejected in server mode). `components.output` (one aggregate file) is mutually exclusive with the per-type fields (`schemas`, `responses`, ...). Server mode is the one-shot CLI (`wakusei openapi.yaml`) and does not need a config file.
 
 `pathAlias`, `prefix` and `components.*.import` are checked here because they are spliced into the generated code verbatim: a quote, a backslash or whitespace would close a `'...'` literal early.
 
@@ -207,29 +191,31 @@ export default defineConfig({
   // Base directory of the generated tree, or a .ts file for single-file output
   output: '.',
 
-  // Generation mode: 'server' uses @orpc/server, 'contract' uses @orpc/contract.
-  // In 'server' mode handlers are written under `output`; `template` is contract-only.
-  mode: 'server', // 'server' | 'contract'
+  // Generation mode: 'contract' uses @orpc/contract. 'server' is the CLI one-shot
+  // (`wakusei openapi.yaml`) and does not need a config file.
+  mode: 'contract', // 'server' | 'contract'
 
   // Schema library for validation
   schema: 'zod', // 'zod' | 'valibot' | 'arktype'
 
-  // Contract mode only: opt into handler stubs and choose their directory.
+  // Opt into handler stubs and choose their directory (default `src/handlers`).
   // Setting `template` in 'server' mode is rejected.
-  // template: { output: 'src/handlers' },
+  template: { output: 'src/handlers' },
 
   // Add 'as const' to generated component objects
   readonly: false,
 
   // Prefix prepended to every generated route path
-  // prefix: '/api/v1',
+  prefix: '/api/v1',
 
   // Import prefix for the generated `src` directory. Schema and component imports
   // resolve against it so they are import-site independent (e.g. '@/components').
-  // pathAlias: '@/',
+  pathAlias: '@/',
 
   // Export component flags (OpenAPI Components Object). A flagged kind is generated;
   // without `components.output` each one gets its own file.
+  exportSchemas: true,
+  exportSchemasTypes: true,
   exportResponses: true,
   exportParameters: true,
   exportParametersTypes: true,

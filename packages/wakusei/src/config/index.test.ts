@@ -70,6 +70,8 @@ describe('parseConfig', () => {
       readonly: true,
       pathAlias: '@/',
       prefix: '/api/v1',
+      exportSchemas: true,
+      exportSchemasTypes: true,
       exportResponses: true,
       exportParametersTypes: true,
       exportMediaTypes: true,
@@ -81,6 +83,48 @@ describe('parseConfig', () => {
         mediaTypes: { output: 'src/components/media.ts' },
       },
     }
+    expect(await parse(config)).toStrictEqual({ ...defaults, ...config })
+  })
+
+  it('accepts the Full Config Reference shape', async () => {
+    const config = {
+      input: 'openapi.yaml',
+      output: '.',
+      mode: 'contract',
+      schema: 'zod',
+      template: { output: 'src/handlers' },
+      readonly: false,
+      prefix: '/api/v1',
+      pathAlias: '@/',
+      exportSchemas: true,
+      exportSchemasTypes: true,
+      exportResponses: true,
+      exportParameters: true,
+      exportParametersTypes: true,
+      exportExamples: true,
+      exportRequestBodies: true,
+      exportHeaders: true,
+      exportHeadersTypes: true,
+      exportSecuritySchemes: true,
+      exportLinks: true,
+      exportCallbacks: true,
+      exportPathItems: true,
+      exportMediaTypes: true,
+      exportMediaTypesTypes: true,
+      components: {
+        schemas: { output: 'src/schemas', split: true, import: '@/schemas' },
+        responses: { output: 'src/components/responses.ts', import: '@/schemas' },
+        parameters: { output: 'src/components/parameters.ts', import: '@/schemas' },
+        headers: { output: 'src/components/headers.ts', import: '@/schemas' },
+        examples: { output: 'src/components/examples.ts' },
+        requestBodies: { output: 'src/components/request-bodies.ts', import: '@/schemas' },
+        securitySchemes: { output: 'src/components/security-schemes.ts' },
+        links: { output: 'src/components/links.ts' },
+        callbacks: { output: 'src/components/callbacks.ts', import: '@/schemas' },
+        pathItems: { output: 'src/components/path-items.ts', import: '@/schemas' },
+        mediaTypes: { output: 'src/components/media-types.ts', import: '@/schemas' },
+      },
+    } as const
     expect(await parse(config)).toStrictEqual({ ...defaults, ...config })
   })
 
