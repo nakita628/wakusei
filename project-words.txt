@@ -3,6 +3,7 @@
 # diff; adding a *typo* here is how the check stops working, so keep it to terms that really recur.
 apidevtools
 arktype
+artipacked
 bsdtar
 codegen
 GOARCH
@@ -11,7 +12,9 @@ Metavar
 msgpackr
 msvc
 nakita
+openssf
 picklist
+pipefail
 rhysd
 sapegin
 stringbool

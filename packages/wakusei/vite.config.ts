@@ -3,9 +3,11 @@ import { defineConfig } from 'vite-plus'
 // oxlint-disable-next-line import/no-default-export -- Vite resolves the config through its default export
 export default defineConfig({
   pack: {
+    // `wakusei` (the package root) is the config module; the CLI is its own file so that
+    // importing `defineConfig` never starts the command. `./config` is an alias of the root.
     entry: {
-      index: './src/index.ts',
-      'config/index': './src/config/index.ts',
+      cli: './src/index.ts',
+      index: './src/config/index.ts',
       'vite-plugin/index': './src/vite-plugin/index.ts',
     },
     format: 'esm',

@@ -237,6 +237,7 @@ export const contract = {
       '--output, -o output  Contract mode: a .ts file for a single module, or a directory (without -o: server mode into .)',
       '--schema lib  Validation library for <input> (default: zod) (choices: zod, valibot, arktype)',
       '--config, -c file  Config file to run (default: ./wakusei.config.ts)',
+      '--watch, -w  Rerun the config on every change to its input documents or itself',
     ])
   })
 

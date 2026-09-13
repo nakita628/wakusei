@@ -1,13 +1,14 @@
 ---
-description: Test conventions for the Vitest suite (vite-plus/test) in packages/wakusei
-globs: **/*.test.ts
+description: Test conventions for the Vitest suites (vite-plus/test) — the unit suite in packages/wakusei and the end-to-end suite in test/
+globs: **/*.test.ts,test/**
 alwaysApply: false
 ---
 
 # Tests
 
-Tests run on **Vitest through vite-plus** and live next to what they cover
-(`src/core/index.test.ts`). Run them with `pnpm test`, one file with
+Tests run on **Vitest through vite-plus**. Unit tests live next to what they cover
+(`src/core/index.test.ts`); the end-to-end suite is the `test/` workspace (below). `pnpm test`
+runs both — build first, `test/` runs `dist` — and one unit file is
 `pnpm -F wakusei test src/<path>.test.ts`.
 
 ## Shape
@@ -52,7 +53,27 @@ type-aware lint sees the default lib there: sort a fresh array with `.sort()`, n
   real generation under a parallel run) on its observable result, never a fixed sleep in the test,
   and must finish before the test ends or its writes and log lines land in the next test.
 - The CLI suite runs `wakusei(argv, entryUrl)` with a recording `Console`, so it asserts exactly
-  what a user sees on stdout and stderr.
+  what a user sees on stdout and stderr. `cli/watch.test.ts` forks the command with `--watch`,
+  edits real files and interrupts the fiber the way Ctrl-C does. An edit can land before the OS
+  watcher is registered, so `writeUntil` repeats it until the output shows the pass; the budgets
+  are starvation allowances, not expectations.
+
+## The end-to-end suite (`test/`)
+
+- `scripts/generate.mjs` runs the packaged CLI (`packages/wakusei/dist/cli.js`) in every
+  `cases/<name>/` that has a `wakusei.config.ts`, writing to `__generated__/<name>` (gitignored).
+  A case with an `overlay` link gets `overlays/handlers` copied in first — handler bodies a user
+  already wrote — so the run exercises the merge, and the merged files are what gets checked.
+- `scripts/typecheck.mjs` runs `tsc -p cases/<name>` for every case with a `tsconfig.json`,
+  under strict, `exactOptionalPropertyTypes` and `noUncheckedIndexedAccess`, against the real
+  `@orpc/*`, zod, valibot and arktype. A generated stub next to an `.output()` does not
+  type-check until implemented, which is what the overlay is for.
+- `runtime/*.test.ts` read `__generated__`: the routers answer HTTP through oRPC's
+  `OpenAPIHandler` (coercion, validation, success status, merged bodies), `typecheck.test.ts` runs
+  the script above, and `vite-plugin.test.ts` starts a real Vite dev server with `wakuseiVite()`.
+- A new generator feature gets a case (a config, and a tsconfig to type-check it) and, when it
+  changes behavior over HTTP, an assertion in `runtime/`. Overlays name procedures, so a spec
+  change that renames one updates `overlays/handlers` in the same change.
 
 ## Coverage of behavior
 

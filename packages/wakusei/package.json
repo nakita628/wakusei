@@ -1,7 +1,6 @@
 {
   "name": "wakusei",
-  "version": "0.0.1",
-  "private": true,
+  "version": "0.0.2",
   "description": "OpenAPI/TypeSpec to oRPC code generator",
   "keywords": [
     "codegen",
@@ -14,16 +13,20 @@
     "url": "git+https://github.com/nakita628/wakusei.git"
   },
   "bin": {
-    "wakusei": "dist/index.js"
+    "wakusei": "dist/cli.js"
   },
   "files": [
     "dist"
   ],
   "type": "module",
   "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
     "./config": {
-      "types": "./dist/config/index.d.ts",
-      "import": "./dist/config/index.js"
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
     },
     "./vite-plugin": {
       "types": "./dist/vite-plugin/index.d.ts",

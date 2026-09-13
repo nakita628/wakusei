@@ -38,7 +38,9 @@ are linted like any other Markdown.
 
 - Every default rule is on. A rule that does not fit is turned off in
   `.markdownlint-cli2.jsonc` with the reason beside it — never left silently unset.
-- The first line is the top-level heading; front matter with a `title` counts.
+- The first line is the top-level heading. Front matter with a `title` counts, which is why the
+  issue templates carry `title: ''`; the pull request template, whose heading is the PR title,
+  disables `MD041` at its top.
 - Ordered lists count `1.` `2.` `3.`.
 - Duplicate headings are allowed only under different parents (`MD024` is `siblings_only`).
 - **Every fenced block declares a language, from the closed list**: `ts`, `tsp`, `js`, `json`,

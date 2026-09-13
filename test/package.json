@@ -1,0 +1,25 @@
+{
+  "name": "@wakusei/test",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "check": "vp check",
+    "fix": "vp check --fix",
+    "test": "vp test",
+    "generate": "node scripts/generate.mjs",
+    "typecheck": "node scripts/typecheck.mjs"
+  },
+  "devDependencies": {
+    "@orpc/contract": "^1.15.0",
+    "@orpc/openapi": "^1.15.0",
+    "@orpc/server": "^1.15.0",
+    "@types/node": "^25.9.1",
+    "@typespec/http": "catalog:",
+    "arktype": "^2.2.3",
+    "typescript": "6.0.3",
+    "valibot": "^1.5.0",
+    "vite": "^8.3.0",
+    "wakusei": "workspace:^",
+    "zod": "^4.6.4"
+  }
+}

@@ -1,0 +1,5 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": { "paths": { "@/*": ["../../__generated__/zod-alias/src/*"] } },
+  "include": ["../../__generated__/zod-alias/**/*"]
+}

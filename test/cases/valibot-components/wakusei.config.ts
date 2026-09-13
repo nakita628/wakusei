@@ -1,0 +1,23 @@
+import { defineConfig } from 'wakusei'
+
+export default defineConfig({
+  input: '../../specs/blog.yaml',
+  mode: 'contract',
+  output: '../../__generated__/valibot-components',
+  schema: 'valibot',
+  readonly: true,
+  exportResponses: true,
+  exportParameters: true,
+  exportParametersTypes: true,
+  exportHeaders: true,
+  exportHeadersTypes: true,
+  exportExamples: true,
+  exportRequestBodies: true,
+  exportSecuritySchemes: true,
+  exportLinks: true,
+  exportCallbacks: true,
+  exportPathItems: true,
+  exportMediaTypes: true,
+  exportMediaTypesTypes: true,
+  components: { schemas: { output: 'src/schemas', split: true } },
+})

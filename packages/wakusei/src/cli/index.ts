@@ -3,8 +3,8 @@ import { fileURLToPath } from 'node:url'
 import { Console, Effect, FileSystem, Option, Runtime, Schema } from 'effect'
 import { Argument, CliError, CliOutput, Command, Flag } from 'effect/unstable/cli'
 
-import type { Config } from '../config/index.js'
-import { DEFAULT_CONFIG_FILE, parseConfig, readConfig } from '../config/index.js'
+import { DEFAULT_CONFIG_FILE, parseConfig } from '../config/index.js'
+import { makeReport, reportConfigPass, runConfigPass, watchConfig } from './watch.js'
 
 const COMMAND_NAME = 'wakusei'
 
@@ -47,6 +47,13 @@ const commandLine = {
     Flag.withMetavar('file'),
     Flag.optional,
   ),
+  // `Flag.boolean` is still a required flag until it is given a default — without this,
+  // every invocation is rejected for not passing `--watch`.
+  watch: Flag.boolean('watch').pipe(
+    Flag.withAlias('w'),
+    Flag.withDescription('Rerun the config on every change to its input documents or itself'),
+    Flag.withDefault(false),
+  ),
 } as const
 
 /** A command line that describes neither mode: answered with the usage and why. */
@@ -63,11 +70,12 @@ function showHelp(message: string) {
  * Two modes. An `<input>` is the one-shot: `-o` switches it from server mode (handlers
  * under `.`) to contract mode, and no config file is consulted even when one sits in
  * the working directory. Without `<input>`, a config file runs — which is what opts in
- * everything else (`template`, `components`, `pathAlias`, `format`, ...).
+ * everything else (`template`, `components`, `pathAlias`, `format`, ...) — once, or on
+ * every change with `--watch`.
  *
  * The generator pipeline pulls in the OpenAPI parser, the TypeSpec compiler and ts-morph.
  * `--help`, `--version`, `--completions` and every rejected command line must not pay for
- * that, so it is loaded here rather than at module scope.
+ * that, so it is loaded lazily rather than at module scope.
  */
 function generate(args: Command.Command.Config.Infer<typeof commandLine>) {
   return Effect.gen(function* () {
@@ -81,36 +89,50 @@ function generate(args: Command.Command.Config.Infer<typeof commandLine>) {
         '--config cannot be combined with <input>, --output or --schema. A config file already names its own input and outputs.',
       )
     }
+    // One-shot writes from one document and is done; there is no second pass for a change
+    // to trigger.
+    if (args.watch && input !== undefined) {
+      return yield* showHelp(
+        '--watch runs a config file, so it cannot be combined with <input>, --output or --schema.',
+      )
+    }
     if (input === undefined && (output ?? schema) !== undefined) {
       return yield* showHelp('--output and --schema need an <input> document.')
     }
 
-    const config: Config =
-      input === undefined
-        ? yield* readConfig(configPath).pipe(
-            // A config that is absent and was never asked for is the "ran `wakusei` with
-            // nothing" case, the one place where the usage block is the answer. A config
-            // that is present and wrong already names the field.
-            Effect.mapError((error) =>
-              configPath === undefined && error.notFound === true
-                ? new CliError.ShowHelp({
-                    commandPath: [COMMAND_NAME],
-                    errors: [new CliError.UserError({ cause: error, userMessage: error.message })],
-                  })
-                : error,
-            ),
-          )
-        : yield* parseConfig({
-            input,
-            output: output ?? '.',
-            mode: output === undefined ? 'server' : 'contract',
-            schema: schema ?? 'zod',
-          })
-    const { orpc } = yield* Effect.promise(() => import('../core/index.js'))
-    yield* orpc(config)
-    return yield* Console.log(
-      `🪐 wakusei: ${config.input} → ${config.output} (${config.mode}, ${config.schema}) ✅`,
+    if (input !== undefined) {
+      const config = yield* parseConfig({
+        input,
+        output: output ?? '.',
+        mode: output === undefined ? 'server' : 'contract',
+        schema: schema ?? 'zod',
+      })
+      const { orpc } = yield* Effect.promise(() => import('../core/index.js'))
+      yield* orpc(config)
+      return yield* Console.log(makeReport(config))
+    }
+
+    const resolvedConfig = configPath ?? DEFAULT_CONFIG_FILE
+    // Under `--watch` the first pass is a pass like any other: the caller asked for a
+    // command that stays up and reacts to edits, and a config that does not validate yet is
+    // the first edit to react to. Without it, one typo ends the session.
+    if (args.watch) {
+      return yield* watchConfig(resolvedConfig, yield* reportConfigPass(resolvedConfig, false))
+    }
+    const pass = yield* runConfigPass(resolvedConfig, false).pipe(
+      // A config that is absent and was never asked for is the "ran `wakusei` with nothing"
+      // case, the one place where the usage block is the answer. A config that is present
+      // and wrong already names the field.
+      Effect.mapError((error) =>
+        configPath === undefined && error._tag === 'ConfigError' && error.notFound === true
+          ? new CliError.ShowHelp({
+              commandPath: [COMMAND_NAME],
+              errors: [new CliError.UserError({ cause: error, userMessage: error.message })],
+            })
+          : error,
+      ),
     )
+    return yield* Console.log(pass.report)
   }).pipe(
     // A `CliError` is already something the runner knows how to render — `ShowHelp` in
     // particular. Everything else is a config, generator or filesystem failure that only
@@ -146,6 +168,10 @@ const cli = Command.make(COMMAND_NAME, commandLine, generate).pipe(
       command: `${COMMAND_NAME} --config config/api.config.ts`,
       description: 'Run a config file from another location',
     },
+    {
+      command: `${COMMAND_NAME} --watch`,
+      description: 'Rerun on every change to the input documents or the config',
+    },
   ]),
 )
 
@@ -173,7 +199,7 @@ function reportBrokenInstall(cause: { readonly message: string }) {
  *
  * `entryUrl` is the `import.meta.url` of the executable; `--version` is read from the
  * `package.json` beside it. Only the entry can supply that: `src/index.ts` and the
- * `dist/index.js` it is packed into both sit one directory below the manifest.
+ * `dist/cli.js` it is packed into both sit one directory below the manifest.
  */
 export function wakusei(argv: readonly string[], entryUrl: string) {
   return Effect.gen(function* () {

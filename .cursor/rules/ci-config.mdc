@@ -1,6 +1,6 @@
 ---
-description: The workflow, action pinning, the lint / format / build configuration, the repository linters and their scripts, dependencies and the published package
-globs: .github/**,**/package.json,**/vite.config.ts,**/tsconfig.json,pnpm-workspace.yaml,scripts/**,cspell.config.yml,project-words.txt,.textlintrc.yml,.markdownlint-cli2.jsonc,.secretlintrc.json
+description: The workflows, action pinning, the lint / format / build configuration, the repository linters and their scripts, dependencies, Renovate, the published package and releasing
+globs: .github/**,**/package.json,**/vite.config.ts,**/tsconfig.json,pnpm-workspace.yaml,renovate.json,scripts/**,test/scripts/**,cspell.config.yml,project-words.txt,.textlintrc.yml,.markdownlint-cli2.jsonc,.secretlintrc.json
 alwaysApply: false
 ---
 
@@ -9,20 +9,22 @@ alwaysApply: false
 ## The workflow
 
 - `test.yml` (Test), on every push to `main` and every pull request:
-  `vp install --frozen-lockfile` → `vp run wakusei#build` → the package tests → `vp run check`,
-  which ends in `pnpm lint` and so runs every linter. A new check goes into the root
-  `package.json` scripts, so local and CI cannot disagree about what "clean" means.
+  `vp install --frozen-lockfile` → `vp run wakusei#build` → the package tests → the test/ suite
+  (which runs the build) → `vp run check`, which ends in `pnpm lint` and so runs every linter. A
+  new check goes into the root `package.json` scripts, so local and CI cannot disagree about what
+  "clean" means.
+- `release.yml` runs after Test succeeds on a push to `main`; see Releasing.
 - **Actions are pinned to a commit digest with the tag kept as a comment**:
   `uses: actions/checkout@3d3c42e… # v7.0.1`. A floating tag is a mutable dependency with access to
   the job — never introduce one. Resolve a tag with
   `git ls-remote https://github.com/<owner>/<repo> 'refs/tags/<tag>*'` (for an annotated tag, the
   `^{}` line is the commit).
 - `permissions` stays minimal (`{}` or `contents: read`, widened per job); checkout uses
-  `persist-credentials: false`.
+  `persist-credentials: false`. The one exception is the release `tag` job, which pushes with the
+  checkout's token and is excused in `.github/zizmor.yml` by line (move it when the file shifts).
 - A finding is excused next to what it is about, with the reason: an inline
   `# zizmor: ignore[audit]`, an entry in `.github/zizmor.yml` pinned to `file:line:col`, or an
-  actionlint message in `.github/actionlint.yml` scoped to one file (create the file for the first
-  one). Never drop the check.
+  actionlint message in `.github/actionlint.yml` scoped to one file. Never drop the check.
 - Verify a workflow or script change with `pnpm lint`, and in a fresh clone
   (`git clone . <tmp> && cd <tmp> && pnpm install --frozen-lockfile`, then the workflow's steps in
   order) when it depends on files a checkout would not have (`dist`, `coverage`).
@@ -96,15 +98,45 @@ itself to, and its comments explain the choices.
 
 ## The published package
 
-- `exports`: `./config` and `./vite-plugin`, each `types` + `import` from `dist`; `bin` is
-  `dist/index.js`. `pack.entry` in `packages/wakusei/vite.config.ts` builds one file per entry
-  (`.js` / `.d.ts` via `outExtensions`). Keep them in step.
+- `exports`: `.` (the config module), `./config` (an alias of `.`) and `./vite-plugin`, each
+  `types` + `import` from `dist`; `bin` is `dist/cli.js`. `pack.entry` in
+  `packages/wakusei/vite.config.ts` builds one file per entry (`.js` / `.d.ts` via
+  `outExtensions`). Keep them in step.
 - There are no lifecycle scripts.
 - The package `README.md` is what npm shows, and the root `README.md` is a symlink to it (see the
   docs rule).
 
+## Renovate
+
+`renovate.json` opens update PRs on Saturdays (Asia/Tokyo), after a release has been out 7 days
+(1 day for a security fix). It merges pins, lockfile maintenance and minor / patch updates of
+packages past 0.x by itself — never an action digest. The `typespec` group keeps TypeSpec in one
+PR; the `effect` group is always merged by hand, together with the override in
+`pnpm-workspace.yaml`.
+
 ## Releasing
 
-There is no release workflow yet, and `packages/wakusei/package.json` is `"private": true`.
-Setting up publishing (a release workflow, npm Trusted Publishing, dropping `private`) is a decision for the owner: never publish, tag or bump `version` unless it was asked
-for.
+Releases are CI's job, driven by `packages/wakusei/package.json`. `release.yml` runs after Test
+passes on a push to `main` and, from the exact commit Test ran on:
+
+1. **check** — stops here when the package is `"private": true` (nothing is tagged or published);
+   otherwise reads the version and asks npm whether it is published;
+2. **tag** — creates `v<version>` on that commit, or verifies it is already there; a published
+   version with no tag, or a tag on another commit, stops with an error that says what to do;
+3. **publish** — only when npm lacks the version: build, then `pnpm publish` through npm Trusted
+   Publishing (OIDC, `id-token: write`, environment `release`), so no npm token is stored.
+   `pnpm publish` writes the `catalog:` ranges into the published manifest; `npm publish` does not,
+   and a manifest with `catalog:` in it cannot be installed;
+4. **release** — creates the GitHub release for the tag with generated notes.
+
+Rules that follow:
+
+- **To release, bump `version` in its own commit (`chore: release wakusei <version>`), with
+  `pnpm check` and `pnpm test` green, and push to `main`.** Nothing else publishes.
+- **Never `npm publish` / `pnpm publish` by hand, and never create or move a `v*` tag by hand.**
+- Never reuse or roll back a published version; to fix a release, bump again.
+- If a job fails (an npm outage, a Trusted Publisher mismatch), fix the cause and re-run the failed
+  jobs; every job is safe to re-run.
+- npm's Trusted Publisher for `wakusei` has to name this repository, **workflow `release.yml`** and
+  **environment `release`**. Renaming either breaks publishing: the OIDC exchange answers 404 and
+  `pnpm publish` fails with a misleading `404 Not Found`.

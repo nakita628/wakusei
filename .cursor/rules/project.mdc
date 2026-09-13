@@ -27,6 +27,13 @@ messages, workflow comments. Test data may be in any language.
 packages/wakusei/              the published package (the only npm artifact)
   src/                         implementation; see the architecture rule for the layering
   vite.config.ts               pack (build), test and lint; the lint section is the standard
+test/                          end-to-end suite over the packaged CLI (see the testing rule)
+  cases/<name>/                one wakusei.config.ts per case (+ tsconfig.json to type-check it,
+                               + overlay -> ../../overlays/handlers for hand-written bodies)
+  specs/                       the OpenAPI / TypeSpec documents the cases read
+  overlays/handlers/           handler bodies merged into the generated handler files
+  scripts/                     generate.mjs (every case, through dist), typecheck.mjs (tsc per case)
+  runtime/                     the vitest suites: HTTP through OpenAPIHandler, typecheck, Vite
 vite.config.ts                 fmt only: the formatting style every workspace inherits
 pnpm-workspace.yaml            workspaces, the @typespec catalog, the Effect override, allowBuilds,
                                minimumReleaseAgeExclude
@@ -38,7 +45,12 @@ project-words.txt              the words cspell does not know but this project u
 scripts/typespec.ts            fails when the @typespec/* packages in pnpm-lock.yaml mix releases
 scripts/actionlint.ts          downloads a pinned actionlint, verifies its checksum, runs it
 scripts/zizmor.ts              downloads a pinned zizmor (workflow security audit), verifies it, runs it
-.github/workflows/test.yml     Test: build, unit tests, `vp run check` (every linter)
+.github/workflows/test.yml     Test: build, unit tests, the test/ suite, `vp run check` (every linter)
+.github/workflows/release.yml  after Test on main: tag, npm publish, GitHub release (inert while private)
+.github/actionlint.yml         actionlint messages excused per file, each with its reason
+.github/zizmor.yml             zizmor findings excused, each with its reason
+.github/ISSUE_TEMPLATE/        bug report and feature request; pull_request_template.md beside it
+renovate.json                  dependency updates (Saturdays, Asia/Tokyo); see the CI rule
 README.md                      symlink to packages/wakusei/README.md, the user docs npm publishes
 assets/icon/wakusei.png        the logo at the top of the README (linked by absolute URL)
 ```
@@ -53,10 +65,12 @@ Run these from the repository root.
 | Everything CI checks except the tests: oxfmt, oxlint (type-aware), the type check, then `pnpm lint` | `pnpm check` |
 | Autofix formatting, oxlint, markdownlint and textlint | `pnpm fix` |
 | The repository linters: markdownlint, textlint, cspell, secretlint, the TypeSpec release check, actionlint, zizmor | `pnpm lint` |
-| Unit tests | `pnpm test` |
+| Unit tests, then the test/ suite (build first: it runs `dist`) | `pnpm test` |
 | One test file | `pnpm -F wakusei test src/<path>.test.ts` |
+| The test/ suite alone | `pnpm -F @wakusei/test test` |
+| Regenerate / type-check the test/ cases | `pnpm -F @wakusei/test generate` / `typecheck` |
 | Build `dist` | `vp run wakusei#build` |
-| Run the built CLI | `node packages/wakusei/dist/index.js --help` |
+| Run the built CLI | `node packages/wakusei/dist/cli.js --help` |
 
 - `pnpm lint` needs no global tool: the linters are root devDependencies, and actionlint / zizmor
   are downloaded once at a pinned, checksummed release into `node_modules/.cache` (so the first
@@ -102,8 +116,10 @@ which part.
   same one in `pnpm-workspace.yaml`. They move together, in one change.
 - **The C-layer `x-*` extensions (code injection) stay unsupported.** `unsafeCodeExtensions` is
   never passed to schema-to-library. See the architecture rule before touching vendor extensions.
-- **Never bump `version`, drop `"private": true` from `packages/wakusei/package.json` or publish**
-  unless a release was asked for. There is no release workflow yet; see the CI rule.
+- **Never bump `version` in `packages/wakusei/package.json` or drop its `"private": true`** unless
+  a release was asked for: pushing a new version to `main` is what publishes it. Never
+  `npm publish`, `pnpm publish` or push a `v*` tag by hand, and never rename `release.yml` or its
+  `release` environment without the matching npm Trusted Publisher change (see the CI rule).
 
 ## Working order
 

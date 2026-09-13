@@ -1,5 +1,5 @@
 ---
-description: Step-by-step playbooks for the recurring tasks here — adding a config option, fixing a generator bug, a vendor extension request, checking a change with the built CLI, clearing a lint failure, adding a linter rule, bumping actionlint or zizmor, bumping effect, TypeSpec or oas-truth. Read this when starting any of those.
+description: Step-by-step playbooks for the recurring tasks here — adding a config option, fixing a generator bug, a vendor extension request, checking a change end-to-end, adding an end-to-end case, clearing a lint failure, adding a linter rule, bumping actionlint or zizmor, bumping effect, TypeSpec or oas-truth, and releasing. Read this when starting any of those.
 alwaysApply: false
 ---
 
@@ -40,18 +40,26 @@ commit.
 3. C (code injection): decline, citing the architecture rule. Do not add a flag, an option or an
    allowlist for it.
 
-## Check a change with the built CLI
+## Check a change end-to-end
 
 For a change to the generated code, the merge, the CLI or the Vite plugin:
 
 1. `vp run wakusei#build`.
-2. In a scratch directory with an OpenAPI document, run
-   `node <repo>/packages/wakusei/dist/index.js openapi.yaml` (and `-o contract.ts`, and a
-   `wakusei.config.ts`), and read what it wrote.
-3. For the merge: edit a handler body, add a `.use(...)`, run again, and confirm both survived.
-4. Type-check the output against the real libraries (`@orpc/server`, `@orpc/contract` and the
-   schema library) when the change touches what the chains or schemas look like. A stub handler
-   next to an `.output()` is expected to fail the check until it is implemented.
+2. `pnpm -F @wakusei/test test`: every case regenerated through `dist` (overlays merged), `tsc`
+   per case against the real libraries, the routers over HTTP, and the Vite dev server.
+3. Read the diff of `test/__generated__` for the cases the change touches.
+4. For `--watch` or the Vite plugin, also run it by hand in a scratch directory: edit the spec and
+   the config, and confirm one pass per save and that handler bodies survive.
+
+## Add an end-to-end case
+
+1. `test/cases/<name>/wakusei.config.ts` reading a document in `test/specs` and writing to
+   `../../__generated__/<name>`.
+2. A `tsconfig.json` extending `../../tsconfig.base.json` over `../../__generated__/<name>`,
+   unless the case is only driven at runtime.
+3. When it writes handler stubs that the runtime suite calls, an `overlay` link to
+   `../../overlays/handlers`, with any new procedure's body added there.
+4. A `runtime/` assertion when the case changes behavior over HTTP.
 
 ## Clear a lint failure
 
@@ -110,3 +118,16 @@ For a change to the generated code, the merge, the CLI or the Vite plugin:
 2. `pnpm install`, `pnpm test`. A changed expectation is a changed generated output: read it and
    decide whether it is right before updating the test.
 3. If oas-truth moved schema-to-library to a new Effect RC, do the effect bump in the same change.
+
+## Release (only when asked)
+
+1. Confirm `main` is green and `packages/wakusei/package.json` is not `"private": true` (the
+   release workflow publishes nothing while it is).
+2. Bump `version` in `packages/wakusei/package.json` only (SemVer; while the version is `0.x`, a
+   breaking change to the config, the CLI or the generated output is a minor bump).
+3. `pnpm check` and `pnpm test`, then commit `chore: release wakusei <version>` and push to
+   `main`.
+4. Watch Test, then `release`: it tags `v<version>`, publishes through `pnpm publish` and creates
+   the GitHub release from that commit. Never publish or tag by hand.
+5. If a job fails, fix the cause and re-run the failed jobs. To fix a published release, bump
+   again — never reuse a version.

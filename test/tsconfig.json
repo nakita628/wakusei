@@ -1,0 +1,5 @@
+{
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": { "types": ["node"] },
+  "include": ["runtime/**/*.ts", "scripts/**/*.ts", "cases/*/wakusei.config.ts", "vite.config.ts"]
+}

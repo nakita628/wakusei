@@ -8,7 +8,7 @@
     "check": "vp fmt --check && vp run -r check && pnpm lint",
     "fix": "vp fmt && vp run -r check --fix && markdownlint-cli2 --fix && textlint --fix --ignore-path .gitignore '**/*.md' '.cursor/rules/*.mdc'",
     "lint": "markdownlint-cli2 && textlint --ignore-path .gitignore '**/*.md' '.cursor/rules/*.mdc' && cspell --no-progress --dot '**' && secretlint '**/*' && node scripts/typespec.ts && node scripts/actionlint.ts -color && node scripts/zizmor.ts .github/workflows",
-    "test": "vp run --filter ./packages/wakusei test",
+    "test": "vp run --filter ./packages/wakusei --filter ./test test",
     "coverage": "vp run --filter ./packages/wakusei coverage"
   },
   "devDependencies": {

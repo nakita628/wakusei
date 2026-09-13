@@ -80,9 +80,9 @@ export function readFile(path: string) {
 
 ## The CLI
 
-- `effect/unstable/cli`: an optional `<input>` argument, `--output` / `-o`, `--schema` and
-  `--config` / `-c`. `--help`, `--version` (read from `package.json`) and `--completions` are the
-  library's.
+- `effect/unstable/cli`: an optional `<input>` argument, `--output` / `-o`, `--schema`,
+  `--config` / `-c` and `--watch` / `-w`. `--help`, `--version` (read from `package.json`) and
+  `--completions` are the library's.
 - Two modes. `<input>` is the one-shot: no config file is read, `-o` switches server mode into
   contract mode, and the flags are turned into a config through `parseConfig`, so both modes
   validate the same way. Without `<input>`, a config file runs.
@@ -90,3 +90,11 @@ export function readFile(path: string) {
   without `<input>`) fails with `ShowHelp` and the reason. `ShowHelp` is also raised when no config
   was asked for and the default file is missing; a config that is present and wrong only names
   the field.
+- `--watch` (`src/cli/watch.ts`) runs the config, then again on every change. It watches the
+  input document's directory recursively (`.yaml` / `.json` / `.tsp`) and the config file
+  through its directory, as `FileSystem.watch` streams merged and debounced by 200ms.
+  `Stream.runForEachWhile` runs one pass at a time, so two passes never merge the same handler
+  file. A failing pass is printed (`❌ …`) and the watch goes on — the first pass included, so a
+  config that does not validate at startup does not end the session. A pass that succeeds and
+  names another input directory ends the round and the watcher follows it. `--watch` next to
+  `<input>` fails with `ShowHelp`.

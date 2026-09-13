@@ -41,13 +41,14 @@ and to the code second.
 | `helper/` | `library.ts` (the per-lib table: object / field builders for the combined input, import candidates), `identifiers.ts` (free identifiers of generated code), `imports.ts` (import lines for what the code references), `operations.ts` (paths / webhooks → `OperationInfo`) | file I/O |
 | `generator/` | pure code builders: `schemas.ts` (oas-truth's `makeSchemaDeclarations` with wakusei's type naming), `components.ts` (oas-truth's `make*Declarations`), `procedures.ts` (route / input / output chains, server procedures, the contract, `implement` stubs) | touch the filesystem, run an Effect |
 | `core/` | orchestration: `index.ts` (`orpc()`), `layout.ts` (config → paths and import specifiers), `components.ts`, `procedures.ts` | assemble code strings (`make*Code` lives in `generator`) |
-| `cli/` | the `wakusei` command on `effect/unstable/cli` | generator logic |
+| `cli/` | the `wakusei` command on `effect/unstable/cli`; `watch.ts` is the config pass and the `--watch` loop | generator logic |
 | `vite-plugin/` | `wakuseiVite()`: reload the config, regenerate on change, clean the split schemas directory and stale outputs | generator logic |
 | `testing/` | `runGenerator` / `runGeneratorError` | ship in `dist` |
 
 ## One pipeline
 
-The CLI and the Vite plugin both call only `orpc()` (`src/core/index.ts`), which runs, stopping at
+The CLI (one-shot, config run, every `--watch` pass) and the Vite plugin all call only `orpc()`
+(`src/core/index.ts`), which runs, stopping at
 the first failure: `parseOpenAPI`, then either `writeSingleFile` (when `output` is a `.ts` file)
 or `resolveLayout` → `writeComponents` → `writeServer` (server mode) / `writeContract` (contract
 mode). Each `write*` returns an Effect. Anything that changes what gets generated belongs in
@@ -142,9 +143,13 @@ schema-to-library unfiltered. C-layer keys disappear only because schema-to-libr
 
 What users can import is exactly the `exports` map of `packages/wakusei/package.json`:
 
-- `wakusei/config` → `src/config/index.ts` (`defineConfig` and the config types)
+- `wakusei` → `dist/index.js` ← `src/config/index.ts` (`defineConfig` and the config types)
+- `wakusei/config` → the same file as `wakusei`, kept so existing configs keep resolving
 - `wakusei/vite-plugin` → `src/vite-plugin/index.ts` (`wakuseiVite`)
-- the `wakusei` bin → `dist/index.js` ← `src/index.ts` → `src/cli`
+- the `wakusei` bin → `dist/cli.js` ← `src/index.ts` → `src/cli`
+
+The package root must stay free of side effects: `src/index.ts` runs the CLI when it is imported,
+so it is packed as `cli`, never as `index`.
 
 `pack.entry` in `packages/wakusei/vite.config.ts` has one entry per subpath; adding a subpath
 means adding it in both places. The config schema, the CLI flags and the Vite plugin's behavior are

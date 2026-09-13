@@ -1,0 +1,51 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": [
+    "config:best-practices",
+    ":separateMultipleMajorReleases",
+    "security:openssf-scorecard"
+  ],
+  "timezone": "Asia/Tokyo",
+  "schedule": ["* * * * 6"],
+  "dependencyDashboardAutoclose": true,
+  "osvVulnerabilityAlerts": true,
+  "vulnerabilityAlerts": {
+    "minimumReleaseAge": "1 day"
+  },
+  "platformAutomerge": false,
+  "lockFileMaintenance": {
+    "enabled": true,
+    "automerge": true,
+    "schedule": ["* * * * 6"]
+  },
+  "packageRules": [
+    {
+      "matchDatasources": ["npm", "github-actions"],
+      "minimumReleaseAge": "7 days"
+    },
+    {
+      "matchPackageNames": ["@typespec/**"],
+      "groupName": "typespec"
+    },
+    {
+      "matchUpdateTypes": ["pin", "pinDigest"],
+      "automerge": true
+    },
+    {
+      "matchUpdateTypes": ["minor", "patch", "digest"],
+      "matchCurrentVersion": "!/^0/",
+      "automerge": true
+    },
+    {
+      "matchManagers": ["github-actions"],
+      "matchUpdateTypes": ["digest"],
+      "automerge": false
+    },
+    {
+      "description": "Kept on the release candidate oas-truth's schema-to-library uses, with @effect/platform-node-shared overridden to it in pnpm-workspace.yaml; move them together by hand.",
+      "matchPackageNames": ["effect", "@effect/**"],
+      "groupName": "effect",
+      "automerge": false
+    }
+  ]
+}

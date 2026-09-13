@@ -2,9 +2,11 @@ name: Test
 
 # Builds, tests and checks the workspace with the same commands a developer runs locally: the root
 # `package.json` scripts are the repository's single definition of "clean", so CI and the working
-# copy can never disagree about what it means. `vp run check` is oxfmt, oxlint and the type check,
-# then `pnpm lint`: markdownlint, textlint, cspell, secretlint, the TypeSpec release check, and
-# actionlint and zizmor over these workflows (downloaded at a pinned, checksummed release).
+# copy can never disagree about what it means. The unit suite runs first, then test/ — the
+# packaged CLI generating every case, tsc over the output and the generated routers served over
+# HTTP. `vp run check` is oxfmt, oxlint and the type check, then `pnpm lint`: markdownlint,
+# textlint, cspell, secretlint, the TypeSpec release check, and actionlint and zizmor over these
+# workflows (downloaded at a pinned, checksummed release).
 #
 # Actions are pinned to a commit digest, with the @vX.Y.Z tag kept as a comment.
 
@@ -32,8 +34,11 @@ jobs:
 
       - run: vp install --frozen-lockfile
 
+      # test/ drives the packaged CLI and the Vite plugin from dist, so the package is built first.
       - run: vp run wakusei#build
 
       - run: vp run --filter ./packages/wakusei test
+
+      - run: vp run --filter ./test test
 
       - run: vp run check

@@ -120,7 +120,7 @@ export * from './orpc'
 
 ```bash
 wakusei <input.{yaml,json,tsp}> [-o <output>] [--schema zod|valibot|arktype]
-wakusei [--config <file>]
+wakusei [--config <file>] [--watch]
 ```
 
 | Invocation                              | What it does                                                          |
@@ -129,8 +129,19 @@ wakusei [--config <file>]
 | `wakusei openapi.yaml -o api.ts`        | Contract mode, one module (`-o <dir>` writes `<dir>/src/contract.ts`) |
 | `wakusei`                               | Runs `./wakusei.config.ts` (prints the usage when there is none)      |
 | `wakusei --config config/api.config.ts` | Runs another config file (`-c` for short)                             |
+| `wakusei --watch`                       | Runs the config, then again on every change (`-w` for short)          |
 
-With `<input>`, no config file is read. `--config` cannot be combined with `<input>`, `--output` or `--schema`. The command also answers `--help`, `--version` and `--completions <shell>`.
+With `<input>`, no config file is read. `--config` cannot be combined with `<input>`, `--output` or `--schema`, and `--watch` runs a config file, so it cannot be combined with them either. The command also answers `--help`, `--version` and `--completions <shell>`.
+
+### Watch mode
+
+```bash
+npx wakusei --watch
+```
+
+Reruns the config on every change to the input documents or to the config itself, and keeps watching when a run fails — a config that does not validate at startup included, so a typo does not end the session. Handler files are merged as on every run: add an operation and its stub appears, while the bodies already written stay put.
+
+The whole directory holding the input document is watched, so a TypeSpec entry that imports its siblings and an external `$ref` both trigger a rerun. When an edit to the config moves `input` to another directory, the watcher follows it.
 
 ## Vite Plugin
 
@@ -163,7 +174,7 @@ New routes are added as stubs. Deleted routes are removed, and a handler file no
 
 ```ts
 // wakusei.config.ts
-import { defineConfig } from 'wakusei/config'
+import { defineConfig } from 'wakusei'
 
 export default defineConfig({
   // OpenAPI spec file (.yaml, .json, or .tsp)

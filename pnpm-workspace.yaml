@@ -1,5 +1,6 @@
 packages:
   - packages/*
+  - test
 # TypeSpec ships every @typespec/* package in one release, so each workspace package takes its
 # version from this catalog (`"catalog:"`) and Renovate moves them together. Strict mode makes
 # `pnpm add` refuse a version outside the catalog.
@@ -19,6 +20,7 @@ allowBuilds:
 minimumReleaseAgeExclude:
   - oas-truth@0.4.0
   - schema-to-library@0.5.0
+  - zod@4.6.4
 # @effect/platform-node pins effect to one release candidate but takes
 # @effect/platform-node-shared with a caret, which resolves to a later RC that imports
 # modules the pinned effect does not have. Keep the whole Effect set on one RC.
