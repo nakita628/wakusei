@@ -26,6 +26,7 @@ messages, workflow comments. Test data may be in any language.
 ```text
 packages/wakusei/              the published package (the only npm artifact)
   src/                         implementation; see the architecture rule for the layering
+  lint/custom.js               oxlint JS plugin: Effect program shape, function declarations
   vite.config.ts               pack (build), test and lint; the lint section is the standard
 test/                          end-to-end suite over the packaged CLI (see the testing rule)
   cases/<name>/                one wakusei.config.ts per case (+ tsconfig.json to type-check it,

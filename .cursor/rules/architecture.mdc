@@ -23,6 +23,8 @@ vite-plugin -> config, core, file
 testing   -> file                                     (test-only; nothing in dist imports it)
 ```
 
+`lint/custom.js` also forbids Effect runners outside `vite-plugin` and `testing`.
+
 Wanting to reach an upper layer means the design is wrong — pass the value in, or move the shared
 code down. `core` cannot import `config`, which is why `core/layout.ts` declares its own
 `WakuseiConfig` shape. A new edge, or a new `src/` directory, is a change to the overrides first

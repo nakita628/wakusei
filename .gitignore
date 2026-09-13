@@ -1,5 +1,8 @@
-node_modules
 .DS_Store
-coverage
+node_modules
+.pnpm-store
 dist
+coverage
 test/__generated__
+cache
+.env

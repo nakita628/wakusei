@@ -152,6 +152,26 @@ describe('parseConfig', () => {
       { ...base, format: 'pretty' },
       'format: must be an oxfmt FormatConfig object',
     ],
+    [
+      'a pathAlias with whitespace',
+      { ...base, pathAlias: '@ /' },
+      'pathAlias: must be an import prefix, with no whitespace or quotes',
+    ],
+    [
+      'a pathAlias with a quote',
+      { ...base, pathAlias: "foo'bar" },
+      'pathAlias: must be an import prefix, with no whitespace or quotes',
+    ],
+    [
+      'a components import with whitespace',
+      { ...base, components: { schemas: { output: 'src/schemas.ts', import: 'foo bar' } } },
+      'components.schemas.import: must be a module specifier, with no whitespace or quotes',
+    ],
+    [
+      'a prefix with a quote',
+      { ...base, prefix: "/api/'v1" },
+      'prefix: must be a path prefix, with no whitespace or quotes',
+    ],
   ])('rejects %s', async (_, config, message) => {
     expect(await parseError(config)).toBe(`Invalid config: ${message}`)
   })

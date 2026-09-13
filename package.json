@@ -4,7 +4,7 @@
   "license": "MIT",
   "type": "module",
   "scripts": {
-    "deps": "mkdir -p /tmp/pnpm-store && pnpm config set store-dir /tmp/pnpm-store &&rm -rf node_modules && rm -rf pnpm-lock.yaml && rm -rf ~/.pnpm-store && pnpm store prune && pnpm install --no-prefer-frozen-lockfile",
+    "deps": "rm -rf node_modules pnpm-lock.yaml && pnpm install",
     "check": "vp fmt --check && vp run -r check && pnpm lint",
     "fix": "vp fmt && vp run -r check --fix && markdownlint-cli2 --fix && textlint --fix --ignore-path .gitignore '**/*.md' '.cursor/rules/*.mdc'",
     "lint": "markdownlint-cli2 && textlint --ignore-path .gitignore '**/*.md' '.cursor/rules/*.mdc' && cspell --no-progress --dot '**' && secretlint '**/*' && node scripts/typespec.ts && node scripts/actionlint.ts -color && node scripts/zizmor.ts .github/workflows",

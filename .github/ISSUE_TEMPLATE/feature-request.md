@@ -3,6 +3,7 @@ name: Feature Request
 about: Something wakusei should generate or do
 title: ''
 labels: enhancement
+assignees: ''
 ---
 
 <!-- Title: the capability, in one line — `cli: print the files a run wrote`. -->
@@ -29,4 +30,15 @@ labels: enhancement
 
 ## How
 
-<!-- Optional: the OpenAPI input, the config and the output you would want. -->
+<!--
+Optional: a sketch. The OpenAPI input, the config option or CLI flag, and the output
+you would want written.
+-->
+
+```yaml
+# openapi.yaml
+```
+
+```ts
+// generated
+```

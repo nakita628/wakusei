@@ -8,12 +8,16 @@ export class OpenAPIError extends Data.TaggedError('OpenAPIError')<{
 
 /**
  * Parses an OpenAPI (`.yaml` / `.json`) or TypeSpec (`.tsp`) document through oas-truth.
- * oas-truth never throws and answers with a result; this is where that result becomes
- * the error channel.
+ * oas-truth answers with a result; `tryPromise` is the belt for an unexpected throw,
+ * and a failed result becomes `OpenAPIError`.
  */
 export function parseOpenAPI(input: string) {
   return Effect.gen(function* () {
-    const result = yield* Effect.promise(() => truth.parseOpenAPI(input))
+    const result = yield* Effect.tryPromise({
+      try: () => truth.parseOpenAPI(input),
+      catch: (error) =>
+        new OpenAPIError({ message: error instanceof Error ? error.message : String(error) }),
+    })
     if (!result.ok) return yield* new OpenAPIError({ message: result.error })
     return result.value
   })

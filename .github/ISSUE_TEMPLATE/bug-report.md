@@ -3,6 +3,7 @@ name: Bug Report
 about: The generated code, the CLI or the Vite plugin does something wrong
 title: ''
 labels: bug
+assignees: ''
 ---
 
 <!-- Title: what is wrong, in one line — `valibot: a recursive schema loses its annotation`. -->
@@ -27,7 +28,10 @@ labels: bug
 
 ## How
 
-<!-- The smallest OpenAPI document, the config and the command that reproduce it. -->
+<!--
+How to reproduce: the smallest OpenAPI document that shows it, the config you ran it
+with and the command. Then the output it wrote and the output you expected.
+-->
 
 ```yaml
 # openapi.yaml

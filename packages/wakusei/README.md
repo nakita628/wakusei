@@ -201,11 +201,13 @@ export default defineConfig({
   // Add 'as const' to generated component objects
   readonly: false,
 
-  // Prefix for all generated route paths (e.g. '/api/v1')
+  // Prefix for all generated route paths (e.g. '/api/v1'). No whitespace or quotes:
+  // the value is interpolated into generated source.
   // prefix: '/api/v1',
 
   // Import path alias for the generated `src` directory. Schema/component imports
   // resolve against it so they are import-site independent (e.g. '@/components').
+  // No whitespace or quotes: the value is interpolated into generated source.
   // pathAlias: '@/',
 
   // Export component flags (OpenAPI Components Object). A flagged kind is generated;
@@ -237,7 +239,7 @@ export default defineConfig({
     schemas: {
       output: 'src/schemas', // Output directory (or file) for schemas
       split: true, // Generate one file per schema
-      import: '@/schemas', // Import path alias for handlers to reference schemas
+      import: '@/schemas', // Module specifier handlers use; no whitespace or quotes
     },
     responses: {
       output: 'src/components/responses.ts', // Output file path

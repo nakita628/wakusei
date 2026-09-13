@@ -46,12 +46,53 @@ const DirectorySchema = Schema.String.check(
   Schema.isPattern(/^(?!.*\.ts$).+/u, { message: 'must be a directory, not a .ts file' }),
 )
 
+/**
+ * Anything below that is spliced into a generated `'...'` literal — a module
+ * specifier, a path alias, a route prefix — has to survive the trip as one token.
+ *
+ * Neither the schema nor the generators quote what they interpolate, so a value
+ * carrying a quote, a backslash or a newline closes the literal early and the
+ * failure lands on oxfmt as a syntax error about the generated file. Rejecting the
+ * value here names the config field instead.
+ */
+const SAFE_IN_STRING_LITERAL = /^[^\s'"`\\]+$/u
+
+const ImportSchema = Schema.String.check(
+  Schema.isPattern(SAFE_IN_STRING_LITERAL, {
+    message: 'must be a module specifier, with no whitespace or quotes',
+  }),
+).annotate({
+  title: 'Import specifier',
+  description: 'Module specifier generated files use to import this output.',
+  examples: ['@/schemas', '../schemas', '.'],
+})
+
+const PathAliasSchema = Schema.String.check(
+  Schema.isPattern(SAFE_IN_STRING_LITERAL, {
+    message: 'must be an import prefix, with no whitespace or quotes',
+  }),
+).annotate({
+  title: 'Path alias',
+  description: 'Import prefix used instead of relative paths; stands for `<output>/src`.',
+  examples: ['@/', '~/'],
+})
+
+const PrefixSchema = Schema.String.check(
+  Schema.isPattern(SAFE_IN_STRING_LITERAL, {
+    message: 'must be a path prefix, with no whitespace or quotes',
+  }),
+).annotate({
+  title: 'Route prefix',
+  description: 'Prefix prepended to every generated route path.',
+  examples: ['/api/v1', '/v1'],
+})
+
 /** An `export*` flag: off unless the config turns it on. */
 const FlagSchema = Schema.Boolean.pipe(Schema.withDecodingDefaultKey(Effect.succeed(false)))
 
 const ComponentSchema = Schema.Struct({
   output: Schema.NonEmptyString,
-  import: Schema.optionalKey(Schema.String),
+  import: Schema.optionalKey(ImportSchema),
 })
 
 const ComponentsSchema = Schema.Struct({
@@ -97,11 +138,11 @@ const sharedFields = {
     description: 'Base directory of the generated tree, or a `.ts` file for single-file output.',
   }),
   readonly: FlagSchema,
-  pathAlias: Schema.optionalKey(Schema.String),
+  pathAlias: Schema.optionalKey(PathAliasSchema),
   schema: Schema.Literals(['zod', 'valibot', 'arktype']).pipe(
     Schema.withDecodingDefaultKey(Effect.succeed('zod' as const)),
   ),
-  prefix: Schema.optionalKey(Schema.String),
+  prefix: Schema.optionalKey(PrefixSchema),
   exportSchemas: FlagSchema,
   exportSchemasTypes: FlagSchema,
   exportResponses: FlagSchema,
@@ -164,8 +205,10 @@ const formatIssue = SchemaIssue.makeFormatterStandardSchemaV1()
  * than listing every consequence of it.
  */
 export function parseConfig(config: unknown) {
-  return decodeMode(config).pipe(
-    Effect.andThen(decodeConfig(config)),
+  return Effect.gen(function* () {
+    yield* decodeMode(config)
+    return yield* decodeConfig(config)
+  }).pipe(
     Effect.mapError((error) => {
       const issue = formatIssue(error.issue).issues[0]
       const path = (issue?.path ?? [])

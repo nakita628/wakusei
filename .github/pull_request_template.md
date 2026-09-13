@@ -39,3 +39,4 @@ Title: `type(scope): summary` — imperative mood, no trailing period.
 
 - [ ] `pnpm check`
 - [ ] `pnpm test` (after `vp run wakusei#build`)
+- [ ] `pnpm --filter ./test typecheck`, when generated output changed

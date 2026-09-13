@@ -25,16 +25,18 @@ export function readFile(path: string) {
 - A function that does I/O **returns an Effect** — never `{ ok, value | error }`, never a Promise.
 - An Effect program is the return value of a named `function`, written as
   `return Effect.gen(function* () { ... })`, optionally followed by `.pipe(...)` for recovery or a
-  provided service. Straight-line `yield*` steps with early-return guards.
+  provided service. Straight-line `yield*` steps with early-return guards. `Effect.fn`,
+  `Effect.flatMap` and `Effect.andThen` never appear — `lint/custom.js` enforces the shape.
 - Sequential work is `Effect.forEach(..., { discard: true })`; independent work is
   `Effect.all(..., { concurrency: 'unbounded' })`. The components are written before the modules
   that import them, so `orpc()` runs its steps in order.
 - **Run an Effect only at a boundary**: `src/index.ts` (`NodeRuntime.runMain`), the Vite plugin's
   hooks, and `src/testing`. Everywhere else an Effect is returned, so its requirements stay visible
   to the caller.
-- `Effect.promise` is for what cannot reject: a dynamic `import()` of a sibling module (the CLI
-  loads `core` lazily), or `oas-truth`'s `parseOpenAPI`, which answers with a result. Anything that
-  can reject goes through `Effect.tryPromise` with a `catch` that maps to a typed error.
+- `Effect.promise` only wraps a dynamic `import()` of a sibling module (the CLI loads `core`
+  lazily). Anything that can reject — including `oas-truth`'s `parseOpenAPI`, whose result is
+  then mapped to `OpenAPIError` — goes through `Effect.tryPromise` with a `catch` that maps to
+  a typed error. The `lint/custom.js` plugin (`custom/effect-promise-import`) enforces this.
 
 ## Errors
 
@@ -77,6 +79,9 @@ export function readFile(path: string) {
 - A new option is a schema field whose check message names what is expected. Keep
   `defineConfig`'s input type (`ConfigSchema.Encoded`) accurate: it is what users get completion
   and errors from while they type.
+- Values spliced into a generated `'...'` literal (`pathAlias`, `prefix`, `components.*.import`)
+  are checked with `SAFE_IN_STRING_LITERAL` so a quote or newline names the config field
+  instead of breaking the generated file.
 
 ## The CLI
 

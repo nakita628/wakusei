@@ -63,6 +63,9 @@ itself to, and its comments explain the choices.
   restated in `rules`.
 - `plugins` replaces oxlint's defaults, so the defaults are restated there — do not drop one while
   adding another.
+- `jsPlugins` loads `lint/custom.js`, which enforces the Effect program shape the Effect rule
+  describes (`Effect.gen` return, no `Effect.fn` / `flatMap` / `andThen`, runners only at a
+  boundary). A new custom rule goes there, with its reason in the file header.
 - A new `src/` directory gets its `no-restricted-imports` override (see the architecture rule).
 
 ## Formatting

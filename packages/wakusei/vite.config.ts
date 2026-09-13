@@ -31,13 +31,16 @@ export default defineConfig({
     },
   },
   lint: {
-    ignorePatterns: ['**/dist/**'],
+    ignorePatterns: ['**/dist/**', 'out/**', 'tmp/**', 'tmp-*/**'],
     // Node-only package: declaring the runtime is what lets rules that resolve globals
     // (`no-undef`, `unicorn/prefer-global-this`) tell `process` apart from a typo.
     env: { node: true, es2024: true },
     // Setting `plugins` replaces oxlint's default list — restate the defaults, then add
     // import / promise / node / jsdoc.
     plugins: ['typescript', 'unicorn', 'oxc', 'import', 'promise', 'node', 'jsdoc'],
+    // The repository conventions a glob cannot express (Effect program shape, function
+    // declarations, predicate naming); see lint/custom.js.
+    jsPlugins: ['./lint/custom.js'],
     options: {
       typeAware: true,
       typeCheck: true,
@@ -52,13 +55,23 @@ export default defineConfig({
       suspicious: 'error',
       perf: 'error',
     },
-    // Mirrors nakita628/hono-takibi and nakita628/hekireki (without their Effect-specific JS
-    // plugin). Exceptions live next to the code as `oxlint-disable-next-line` with a reason,
-    // never as `'off'` here. Rules in correctness / suspicious / perf are already errors via
-    // `categories`; this list adds pedantic / style / restriction / nursery rules.
+    // Mirrors nakita628/hono-takibi. Exceptions live next to the code as
+    // `oxlint-disable-next-line` with a reason, never as `'off'` here. Rules in
+    // correctness / suspicious / perf are already errors via `categories`; this list
+    // adds pedantic / style / restriction / nursery rules.
     rules: {
+      'custom/effect-gen-return': 'error',
+      'custom/no-effect-fn': 'error',
+      'custom/no-effect-flatmap': 'error',
+      'custom/function-declaration': 'error',
+      'custom/predicate-is-name': 'error',
+      // `@internal` and friends are modifiers, so their text belongs to the description;
+      // `check-tag-names` is what catches a tag that is merely misspelled.
       'jsdoc/empty-tags': 'error',
       'jsdoc/check-tag-names': 'error',
+      'custom/no-effect-run': 'error',
+      'custom/effect-promise-import': 'error',
+      'custom/type-pascal-case': 'error',
       eqeqeq: 'error',
       'no-var': 'error',
       'prefer-const': 'error',
@@ -167,6 +180,8 @@ export default defineConfig({
       'unicorn/prefer-array-flat': 'error',
       'unicorn/prefer-object-from-entries': 'error',
       'unicorn/prefer-string-trim-start-end': 'error',
+      // `unicorn/prefer-code-point` is deliberately absent: identifier hashing, when
+      // it appears, wants the UTF-16 code unit, not a code point.
       'unicorn/prefer-native-coercion-functions': 'error',
       'unicorn/consistent-empty-array-spread': 'error',
       'unicorn/prefer-single-call': 'error',
@@ -196,6 +211,9 @@ export default defineConfig({
       radix: 'error',
       'prefer-numeric-literals': 'error',
       'prefer-exponentiation-operator': 'error',
+      // `no-implicit-coercion` is deliberately absent: its fix rewrites `!!(a && b)` to
+      // `Boolean(a && b)`, and TypeScript's aliased-condition narrowing does not survive
+      // the call form.
       'unicorn/no-typeof-undefined': 'error',
 
       // Control flow and declarations. `curly: multi-line` keeps one-line guard clauses legal.
@@ -280,6 +298,8 @@ export default defineConfig({
       'promise/catch-or-return': 'error',
       'promise/always-return': 'error',
       'promise/prefer-catch': 'error',
+      // `promise/prefer-await-to-then` is deliberately absent: it matches any `.catch()`,
+      // and a schema library's `.catch(fallback)` is a schema method, not a promise.
       'node/no-exports-assign': 'error',
       'node/no-new-require': 'error',
       'node/no-mixed-requires': 'error',
@@ -304,10 +324,20 @@ export default defineConfig({
       'import/no-empty-named-blocks': 'error',
       'no-shadow-restricted-names': 'error',
       'no-delete-var': 'error',
+      // `unicorn/filename-case` is deliberately absent: the component modules are named
+      // after the OpenAPI Components Object keys they emit (`mediaTypes.ts`, `pathItems.ts`,
+      // `requestBodies.ts`, `securitySchemes.ts`), which are also the config field names.
     },
     // Layering of src: each directory may import only the siblings its message lists.
     // Regexes match relative specifiers only, so packages never collide with a directory name.
     overrides: [
+      {
+        // The two places an Effect meets something that is not one: the Vite plugin's
+        // hooks are Vite's own Promise/callback API, and the test helpers hand a result
+        // back to a test. Everywhere else an Effect is returned, not run.
+        files: ['src/vite-plugin/**', 'src/testing/**'],
+        rules: { 'custom/no-effect-run': 'off' },
+      },
       {
         files: ['src/format/**', 'src/file/**', 'src/merge/**', 'src/config/**', 'src/openapi/**'],
         rules: {
@@ -330,7 +360,7 @@ export default defineConfig({
               patterns: [
                 {
                   regex:
-                    '^(\\.\\./)+(cli|config|core|generator|helper|merge|openapi|vite-plugin)(/.*)?$',
+                    '^(\\.\\./)+(cli|config|core|generator|helper|merge|openapi|testing|vite-plugin)(/.*)?$',
                   message: 'emit may only import format, file',
                 },
               ],
@@ -347,7 +377,7 @@ export default defineConfig({
               patterns: [
                 {
                   regex:
-                    '^(\\.\\./)+(cli|config|core|emit|file|format|generator|merge|openapi|vite-plugin)(/.*)?$',
+                    '^(\\.\\./)+(cli|config|core|emit|file|format|generator|merge|openapi|testing|vite-plugin)(/.*)?$',
                   message: 'helper may only import helper',
                 },
               ],
@@ -364,7 +394,7 @@ export default defineConfig({
               patterns: [
                 {
                   regex:
-                    '^(\\.\\./)+(cli|config|core|emit|file|format|merge|openapi|vite-plugin)(/.*)?$',
+                    '^(\\.\\./)+(cli|config|core|emit|file|format|merge|openapi|testing|vite-plugin)(/.*)?$',
                   message: 'generator may only import helper',
                 },
               ],
@@ -380,9 +410,26 @@ export default defineConfig({
             {
               patterns: [
                 {
-                  regex: '^(\\.\\./)+(cli|config|vite-plugin)(/.*)?$',
+                  regex: '^(\\.\\./)+(cli|config|testing|vite-plugin)(/.*)?$',
                   message:
                     'core may only import helper, generator, emit, file, format, merge, openapi',
+                },
+              ],
+            },
+          ],
+        },
+      },
+      {
+        files: ['src/testing/**'],
+        rules: {
+          'no-restricted-imports': [
+            'error',
+            {
+              patterns: [
+                {
+                  regex:
+                    '^(\\.\\./)+(cli|config|core|emit|format|generator|helper|merge|openapi|vite-plugin)(/.*)?$',
+                  message: 'testing may only import file',
                 },
               ],
             },
@@ -397,7 +444,7 @@ export default defineConfig({
             {
               patterns: [
                 {
-                  regex: '^(\\.\\./)+(emit|file|format|generator|helper|merge|openapi)(/.*)?$',
+                  regex: '^(\\.\\./)+(emit|file|format|generator|helper|merge|openapi|testing)(/.*)?$',
                   message: 'cli may only import config, core',
                 },
               ],
@@ -413,12 +460,26 @@ export default defineConfig({
             {
               patterns: [
                 {
-                  regex: '^(\\.\\./)+(cli|emit|format|generator|helper|merge|openapi)(/.*)?$',
+                  regex: '^(\\.\\./)+(cli|emit|format|generator|helper|merge|openapi|testing)(/.*)?$',
                   message: 'vite-plugin may only import config, core, file',
                 },
               ],
             },
           ],
+        },
+      },
+      {
+        // The convention plugin is an oxlint JS plugin: it walks an untyped ESTree and its
+        // contract with oxlint is a default export.
+        files: ['lint/**'],
+        rules: {
+          'import/no-default-export': 'off',
+          'import/no-anonymous-default-export': 'off',
+          'typescript/no-unsafe-argument': 'off',
+          'typescript/no-unsafe-assignment': 'off',
+          'typescript/no-unsafe-call': 'off',
+          'typescript/no-unsafe-member-access': 'off',
+          'typescript/no-unsafe-return': 'off',
         },
       },
       {
@@ -433,9 +494,15 @@ export default defineConfig({
         files: ['**/*.test.ts'],
         plugins: ['vitest'],
         rules: {
+          // A test arranges and asserts imperatively when that is the clearest way to
+          // spell a fixture out; the structural rules describe `src`, not the suite.
+          'custom/effect-gen-return': 'off',
+          'custom/function-declaration': 'off',
+          'custom/predicate-is-name': 'off',
           'init-declarations': 'off',
           'no-empty-function': 'off',
           'typescript/strict-void-return': 'off',
+          'unicorn/no-lonely-if': 'off',
           'no-restricted-imports': 'off',
           'typescript/no-explicit-any': 'off',
           'typescript/consistent-type-assertions': 'off',
@@ -467,6 +534,10 @@ export default defineConfig({
           'vitest/prefer-each': 'error',
           'vitest/prefer-spy-on': 'error',
           'vitest/no-mocks-import': 'error',
+          // Snapshots are a partial-match assertion by another name, so they are kept
+          // small and literal where they appear at all.
+          'vitest/no-interpolation-in-snapshots': 'error',
+          'vitest/no-large-snapshots': 'error',
         },
       },
     ],
@@ -474,6 +545,6 @@ export default defineConfig({
   // Style (printWidth / quotes / semicolons / import sorting) is inherited from the root
   // vite.config.ts; only the paths this workspace skips are declared here.
   fmt: {
-    ignorePatterns: ['**/node_modules/**', '**/dist/**'],
+    ignorePatterns: ['**/node_modules/**', '**/dist/**', 'out/**', 'tmp/**', 'tmp-*/**'],
   },
 })
