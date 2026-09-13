@@ -1,6 +1,6 @@
 {
   "name": "wakusei",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "description": "OpenAPI/TypeSpec to oRPC code generator",
   "keywords": [
     "codegen",
