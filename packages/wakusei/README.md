@@ -212,8 +212,9 @@ export default defineConfig({
   // resolve against it so they are import-site independent (e.g. '@/components').
   pathAlias: '@/',
 
-  // Export component flags (OpenAPI Components Object). A flagged kind is generated;
-  // without `components.output` each one gets its own file.
+  // Export options (OpenAPI Components Object). A flagged kind is generated;
+  // without `components.output` each one gets its own file. `*Types` adds
+  // `export type` next to each schema, parameter, header or media type.
   exportSchemas: true,
   exportSchemasTypes: true,
   exportResponses: true,

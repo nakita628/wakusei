@@ -11,6 +11,8 @@ const base: WakuseiConfig = {
   output: 'gen',
   schema: 'zod',
   readonly: false,
+  exportSchemas: false,
+  exportSchemasTypes: true,
   exportResponses: false,
   exportParameters: false,
   exportParametersTypes: false,

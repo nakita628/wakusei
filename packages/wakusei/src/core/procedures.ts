@@ -148,7 +148,9 @@ export function writeSingleFile(openapi: OpenAPI, config: WakuseiConfig, file: s
   const context = makeContext(openapi, config)
   const operations = makeOperations(openapi)
   const parts = [
-    ...makeSchemaDeclarations(openapi.components?.schemas ?? {}, config.schema).map((d) => d.code),
+    ...makeSchemaDeclarations(openapi.components?.schemas ?? {}, config.schema, {
+      exportTypes: config.exportSchemasTypes,
+    }).map((d) => d.code),
     config.mode === 'server'
       ? makeServerProcedures(operations, context)
       : makeContract(operations, context),

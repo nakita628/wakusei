@@ -90,6 +90,10 @@ const PrefixSchema = Schema.String.check(
 /** An `export*` flag: off unless the config turns it on. */
 const FlagSchema = Schema.Boolean.pipe(Schema.withDecodingDefaultKey(Effect.succeed(false)))
 
+function exportFlag(description: string) {
+  return FlagSchema.annotate({ description })
+}
+
 const ComponentSchema = Schema.Struct({
   output: Schema.NonEmptyString,
   import: Schema.optionalKey(ImportSchema),
@@ -143,21 +147,34 @@ const sharedFields = {
     Schema.withDecodingDefaultKey(Effect.succeed('zod' as const)),
   ),
   prefix: Schema.optionalKey(PrefixSchema),
-  exportSchemas: FlagSchema,
-  exportSchemasTypes: FlagSchema,
-  exportResponses: FlagSchema,
-  exportParameters: FlagSchema,
-  exportParametersTypes: FlagSchema,
-  exportExamples: FlagSchema,
-  exportRequestBodies: FlagSchema,
-  exportHeaders: FlagSchema,
-  exportHeadersTypes: FlagSchema,
-  exportSecuritySchemes: FlagSchema,
-  exportLinks: FlagSchema,
-  exportCallbacks: FlagSchema,
-  exportPathItems: FlagSchema,
-  exportMediaTypes: FlagSchema,
-  exportMediaTypesTypes: FlagSchema,
+  exportSchemas: exportFlag(
+    'Re-export `components.schemas`. Schema constants are always `export const` because handlers import them.',
+  ),
+  // Default on: today's generated output always ships the inferred type next to each schema.
+  exportSchemasTypes: Schema.Boolean.pipe(
+    Schema.withDecodingDefaultKey(Effect.succeed(true)),
+  ).annotate({
+    description: 'Also export the TypeScript type inferred from each `components.schemas` entry.',
+  }),
+  exportResponses: exportFlag('Generate `components.responses`.'),
+  exportParameters: exportFlag('Generate `components.parameters`.'),
+  exportParametersTypes: exportFlag(
+    'Also export the TypeScript type inferred from each `components.parameters` entry.',
+  ),
+  exportExamples: exportFlag('Generate `components.examples`.'),
+  exportRequestBodies: exportFlag('Generate `components.requestBodies`.'),
+  exportHeaders: exportFlag('Generate `components.headers`.'),
+  exportHeadersTypes: exportFlag(
+    'Also export the TypeScript type inferred from each `components.headers` entry.',
+  ),
+  exportSecuritySchemes: exportFlag('Generate `components.securitySchemes`.'),
+  exportLinks: exportFlag('Generate `components.links`.'),
+  exportCallbacks: exportFlag('Generate `components.callbacks`.'),
+  exportPathItems: exportFlag('Generate `components.pathItems`.'),
+  exportMediaTypes: exportFlag('Generate `components.mediaTypes`.'),
+  exportMediaTypesTypes: exportFlag(
+    'Also export the TypeScript type inferred from each `components.mediaTypes` entry.',
+  ),
   components: Schema.optionalKey(ComponentsSchema),
 }
 

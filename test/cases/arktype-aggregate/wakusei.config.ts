@@ -5,6 +5,8 @@ export default defineConfig({
   mode: 'contract',
   output: '../../__generated__/arktype-aggregate',
   schema: 'arktype',
+  exportSchemas: true,
+  exportSchemasTypes: true,
   exportResponses: true,
   exportParameters: true,
   exportParametersTypes: true,

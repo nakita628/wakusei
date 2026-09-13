@@ -7,6 +7,8 @@ import { COMPONENT_KINDS } from '../generator/components.js'
 import type { SchemaLib } from '../helper/library.js'
 
 type ExportFlag =
+  | 'exportSchemas'
+  | 'exportSchemasTypes'
   | 'exportResponses'
   | 'exportParameters'
   | 'exportParametersTypes'

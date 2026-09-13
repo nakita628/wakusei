@@ -6,9 +6,16 @@ import type { SchemaLib } from '../helper/library.js'
 /**
  * One `export const <X>Schema=...` declaration per `components.schemas` entry, through
  * oas-truth: dependency-first order, `$ref` cycles and colliding names are its job. The
- * host choice is that every schema exports its type under the constant's name
- * (`export type PostSchema = z.infer<typeof PostSchema>`).
+ * host choice is that the exported type is named after the constant
+ * (`export type PostSchema = z.infer<typeof PostSchema>`) when `exportTypes` is on.
  */
-export function makeSchemaDeclarations(schemas: { readonly [k: string]: Schema }, lib: SchemaLib) {
-  return declareSchemas(schemas, makeAdapter(lib), { exportTypes: true, typeAlias: 'const' })
+export function makeSchemaDeclarations(
+  schemas: { readonly [k: string]: Schema },
+  lib: SchemaLib,
+  options?: { readonly exportTypes?: boolean },
+) {
+  return declareSchemas(schemas, makeAdapter(lib), {
+    exportTypes: options?.exportTypes ?? true,
+    typeAlias: 'const',
+  })
 }

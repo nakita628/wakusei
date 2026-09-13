@@ -69,6 +69,14 @@ describe('makeSchemaDeclarations', () => {
     ])
   })
 
+  it('omits the inferred type when exportTypes is false', () => {
+    expect(
+      makeSchemaDeclarations({ Tag: { type: 'string' } } as never, 'zod', {
+        exportTypes: false,
+      }).map((d) => d.code),
+    ).toStrictEqual(['export const TagSchema=z.string()'])
+  })
+
   it('names split files after the identifier', () => {
     expect(
       makeSchemaDeclarations(schemas as never, 'zod').map((d) => [d.name, d.varName, d.fileName]),

@@ -6,6 +6,8 @@ export default defineConfig({
   output: '../../__generated__/valibot-components',
   schema: 'valibot',
   readonly: true,
+  exportSchemas: true,
+  exportSchemasTypes: true,
   exportResponses: true,
   exportParameters: true,
   exportParametersTypes: true,

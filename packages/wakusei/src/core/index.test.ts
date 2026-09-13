@@ -449,6 +449,17 @@ describe('single-file output', () => {
     ])
   })
 
+  it('omits schema type aliases in a single file when exportSchemasTypes is false', async () => {
+    await generate({ mode: 'contract', output: 'src/api.ts', exportSchemasTypes: false })
+    const lines = read('src/api.ts').split('\n')
+    expect(lines.filter((line) => line.startsWith('export type'))).toStrictEqual([])
+    expect(lines.filter((line) => line.startsWith('export const'))).toStrictEqual([
+      'export const PostSchema = z.object({ id: z.int().min(1), title: z.string() })',
+      'export const CreatePostSchema = z.object({ title: z.string() })',
+      'export const contract = {',
+    ])
+  })
+
   it('writes the schemas and server procedures into the .ts file', async () => {
     await generate({ output: 'src/api.ts' })
     const lines = read('src/api.ts').split('\n')
@@ -483,6 +494,16 @@ describe('components', () => {
     expect(read('src/handlers/posts.ts').split('\n')[2]).toBe(
       "import { CreatePostSchema, PostSchema } from '../schemas'",
     )
+  })
+
+  it('omits schema type aliases when exportSchemasTypes is false', async () => {
+    await generate({ exportSchemasTypes: false })
+    expect(read('src/components/index.ts')).toBe(`import * as z from 'zod'
+
+export const PostSchema = z.object({ id: z.int().min(1), title: z.string() })
+
+export const CreatePostSchema = z.object({ title: z.string() })
+`)
   })
 
   it('writes only the schemas when no export flag is set', async () => {

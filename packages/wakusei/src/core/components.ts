@@ -45,7 +45,9 @@ export function writeComponents(openapi: OpenAPI, config: WakuseiConfig, layout:
   const components = openapi.components ?? {}
   const adapter = makeAdapter(config.schema)
   const libraryImports = makeLibraryImports(config.schema)
-  const declarations = makeSchemaDeclarations(components.schemas ?? {}, config.schema)
+  const declarations = makeSchemaDeclarations(components.schemas ?? {}, config.schema, {
+    exportTypes: config.exportSchemasTypes,
+  })
   const kindCode = (kind: ComponentKind) =>
     makeComponentCode(kind, components, adapter, {
       readonly: config.readonly,

@@ -65,7 +65,8 @@ reload, cleaning the split schemas directory and stale outputs) says why in its 
 - `.input()` is the JSON body's schema alone, or, next to parameters, one object of the path
   parameters, the query parameters and the body's properties (a parameter wins a key clash).
   `.output()` is the success response's JSON schema.
-- Each schema declaration exports its type under the same name
+- Each schema declaration exports its type under the same name when
+  `exportSchemasTypes` is on (the default)
   (`export type PostSchema = z.infer<typeof PostSchema>`).
 - Components: without per-kind config, flags or `split`, the schemas and every flagged kind share
   one module (`components.output`, `components.schemas.output` or `src/components/index.ts`).
@@ -106,8 +107,9 @@ is the generator's and is rewritten wholesale.
 - **`components.schemas` belongs to oas-truth.** `makeSchemaDeclarations` returns the
   declarations in dependency-first order, handles `$ref` cycles (lazy references inside the cycle
   with a `z.ZodType<…>` / `v.GenericSchema<…>` annotation, an arktype `scope` container) and
-  suffixes colliding names (`user` / `User` → `User` / `User2`). wakusei only asks for exported
-  types named after the constant (`typeAlias: 'const'`). Do not re-implement any of it here.
+  suffixes colliding names (`user` / `User` → `User` / `User2`). wakusei asks for types named
+  after the constant (`typeAlias: 'const'`) when `exportSchemasTypes` is on (the default). Do
+  not re-implement any of it here.
 - Every other Components kind comes from its `make<Kind>Declarations`, `mediaTypes` included.
 - A `$ref` wakusei writes itself (a `.input()` / `.output()` schema, a body property) resolves
   through `makeSchemaVarName(ref, makeSchemaIdentifiers(schemas))`, the same collision map the

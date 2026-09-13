@@ -15,7 +15,7 @@ const defaults = {
   readonly: false,
   schema: 'zod',
   exportSchemas: false,
-  exportSchemasTypes: false,
+  exportSchemasTypes: true,
   exportResponses: false,
   exportParameters: false,
   exportParametersTypes: false,
@@ -61,6 +61,14 @@ describe('parseConfig', () => {
 
   it.each(['zod', 'valibot', 'arktype'])('accepts schema %s', async (schema) => {
     expect(await parse({ ...base, schema })).toStrictEqual({ ...base, ...defaults, schema })
+  })
+
+  it('accepts exportSchemasTypes false', async () => {
+    expect(await parse({ ...base, exportSchemasTypes: false })).toStrictEqual({
+      ...base,
+      ...defaults,
+      exportSchemasTypes: false,
+    })
   })
 
   it('accepts every field', async () => {
