@@ -40,6 +40,7 @@ scripts/actionlint.ts          downloads a pinned actionlint, verifies its check
 scripts/zizmor.ts              downloads a pinned zizmor (workflow security audit), verifies it, runs it
 .github/workflows/test.yml     Test: build, unit tests, `vp run check` (every linter)
 README.md                      user docs; packages/wakusei/README.md is an identical copy
+assets/icon/wakusei.png        the logo at the top of the README (linked by absolute URL)
 ```
 
 ## Commands

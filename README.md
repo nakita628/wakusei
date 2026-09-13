@@ -1,5 +1,7 @@
 # Wakusei
 
+![Wakusei logo](https://github.com/nakita628/wakusei/blob/main/assets/icon/wakusei.png)
+
 ```bash
 npm install -D wakusei
 ```
