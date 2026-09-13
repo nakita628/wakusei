@@ -95,14 +95,35 @@ function exportFlag(description: string) {
 }
 
 const ComponentSchema = Schema.Struct({
-  output: Schema.NonEmptyString,
+  output: Schema.NonEmptyString.annotate({
+    title: 'Component output',
+    description: 'File or directory for this Components kind.',
+    examples: ['src/components/responses.ts'],
+  }),
   import: Schema.optionalKey(ImportSchema),
 })
 
 const ComponentsSchema = Schema.Struct({
-  output: Schema.optionalKey(TypeScriptPathSchema),
+  output: Schema.optionalKey(
+    TypeScriptPathSchema.annotate({
+      title: 'Aggregate components file',
+      description:
+        'Single file for the schemas and every flagged kind. Mutually exclusive with the per-type fields.',
+      examples: ['src/components/index.ts'],
+    }),
+  ),
   schemas: Schema.optionalKey(
-    Schema.Struct({ ...ComponentSchema.fields, split: Schema.optionalKey(Schema.Boolean) }),
+    Schema.Struct({
+      ...ComponentSchema.fields,
+      split: Schema.optionalKey(
+        Schema.Boolean.annotate({
+          description: 'Write one file per schema under `output`.',
+        }),
+      ),
+    }).annotate({
+      title: 'Schemas output',
+      description: 'Where `components.schemas` are written.',
+    }),
   ),
   responses: Schema.optionalKey(ComponentSchema),
   parameters: Schema.optionalKey(ComponentSchema),
@@ -141,11 +162,17 @@ const sharedFields = {
   output: Schema.NonEmptyString.annotate({
     description: 'Base directory of the generated tree, or a `.ts` file for single-file output.',
   }),
-  readonly: FlagSchema,
+  readonly: FlagSchema.annotate({
+    description: 'Emit `as const` on generated component objects.',
+  }),
   pathAlias: Schema.optionalKey(PathAliasSchema),
-  schema: Schema.Literals(['zod', 'valibot', 'arktype']).pipe(
-    Schema.withDecodingDefaultKey(Effect.succeed('zod' as const)),
-  ),
+  schema: Schema.Literals(['zod', 'valibot', 'arktype'])
+    .pipe(Schema.withDecodingDefaultKey(Effect.succeed('zod' as const)))
+    .annotate({
+      title: 'Schema library',
+      description: 'Validation library for generated schemas.',
+      examples: ['zod', 'valibot', 'arktype'],
+    }),
   prefix: Schema.optionalKey(PrefixSchema),
   exportSchemas: exportFlag(
     'Re-export `components.schemas`. Schema constants are always `export const` because handlers import them.',
@@ -183,11 +210,33 @@ const sharedFields = {
  * `server` config that sets `template` fails on `template`, not on `mode`.
  */
 const ConfigSchema = Schema.Union([
-  Schema.Struct({ mode: Schema.Literal('server'), ...sharedFields }),
   Schema.Struct({
-    mode: Schema.Literal('contract'),
+    mode: Schema.Literal('server').annotate({
+      description:
+        'Generate `@orpc/server` procedures. The CLI one-shot (`wakusei openapi.yaml`) uses this mode.',
+    }),
     ...sharedFields,
-    template: Schema.optionalKey(Schema.Struct({ output: Schema.optionalKey(DirectorySchema) })),
+  }),
+  Schema.Struct({
+    mode: Schema.Literal('contract').annotate({
+      description: 'Generate an `@orpc/contract` router.',
+    }),
+    ...sharedFields,
+    template: Schema.optionalKey(
+      Schema.Struct({
+        output: Schema.optionalKey(
+          DirectorySchema.annotate({
+            title: 'Handler directory',
+            description:
+              'Directory for `implement(contract)` stubs. Defaults to `src/handlers` when omitted.',
+            examples: ['src/handlers'],
+          }),
+        ),
+      }).annotate({
+        title: 'Contract template',
+        description: 'Opt into `implement(contract)` stubs. Rejected in server mode.',
+      }),
+    ),
   }),
 ]).annotate({ title: 'wakusei config' })
 

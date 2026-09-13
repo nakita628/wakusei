@@ -100,6 +100,7 @@ describe('parseConfig', () => {
       output: '.',
       mode: 'contract',
       schema: 'zod',
+      format: {},
       template: { output: 'src/handlers' },
       readonly: false,
       prefix: '/api/v1',
