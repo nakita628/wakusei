@@ -42,15 +42,22 @@ function writeSplitFiles(
 }
 
 /**
- * An `index.ts` re-exporting the component modules, when they all sit in one directory
- * that does not already have an `index.ts` of its own. `modules` are files, or the
- * directory of split schemas.
+ * An `index.ts` re-exporting the component modules, when they are all `.ts` files in
+ * one directory that does not already have an `index.ts` of its own. Split directories
+ * keep their own barrel and are left out — otherwise `src/schemas` next to
+ * `src/parameters.ts` would write `src/index.ts`.
  */
 function makeComponentsBarrel(modules: readonly string[]): readonly File[] {
   const dir = modules[0] === undefined ? undefined : path.dirname(modules[0])
   if (dir === undefined || modules.length < 2) return []
   const index = path.join(dir, 'index.ts')
-  if (modules.some((module) => path.dirname(module) !== dir || module === index)) return []
+  if (
+    modules.some(
+      (module) => !module.endsWith('.ts') || path.dirname(module) !== dir || module === index,
+    )
+  ) {
+    return []
+  }
   return [{ path: index, code: makeBarrel(modules.map((module) => path.basename(module, '.ts'))) }]
 }
 
@@ -128,7 +135,7 @@ export function writeComponents(openapi: OpenAPI, config: WakuseiConfig, layout:
     const schemaImports = declarations.map((d) => ({ name: d.varName, from }))
     return [{ path: file, code: withImports(code, [...libraryImports, ...schemaImports]) }]
   })
-  const schemasModule = schemaFiles.length > 0 ? [layout.schemas.file] : []
+  const schemasModule = schemaFiles.length > 0 && !layout.schemas.split ? [layout.schemas.file] : []
   return emitFiles([
     ...schemaFiles,
     ...splitFiles,
