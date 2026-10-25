@@ -4,7 +4,7 @@ import { Effect } from 'effect'
 import type { OpenAPI } from 'oas-truth'
 import { makeSchemaIdentifiers } from 'oas-truth'
 
-import { emit } from '../emit/index.js'
+import { EMIT_CONCURRENCY, emit } from '../emit/index.js'
 import { readdir, readFile, unlink } from '../file/index.js'
 import {
   makeContract,
@@ -73,7 +73,7 @@ function writeHandlerFiles(
     yield* Effect.forEach(
       groups,
       ([name, operations]) => writeHandlerFile(dir, name, operations, makeCode, managed),
-      { discard: true },
+      { concurrency: EMIT_CONCURRENCY, discard: true },
     )
     if (names.length > 0) {
       const barrel = names
@@ -87,7 +87,7 @@ function writeHandlerFiles(
     yield* Effect.forEach(
       entries.filter((entry) => entry.endsWith('.ts') && !expected.has(entry)),
       (entry) => unlink(path.join(dir, entry)),
-      { discard: true },
+      { concurrency: EMIT_CONCURRENCY, discard: true },
     )
   })
 }

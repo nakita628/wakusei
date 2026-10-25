@@ -36,7 +36,7 @@ describe('emit', () => {
 })
 
 describe('emitFiles', () => {
-  it('writes every file in order and stops at the first failure', async () => {
+  it('writes nothing when any file fails to format', async () => {
     const dir = tmpDir()
     const error = await runGeneratorError(
       emitFiles([
@@ -46,6 +46,20 @@ describe('emitFiles', () => {
       ]),
     )
     expect(error._tag).toBe('FormatError')
-    expect(fs.readdirSync(dir)).toStrictEqual(['a.ts'])
+    expect(fs.readdirSync(dir)).toStrictEqual([])
+  })
+
+  it('writes every file, creating each directory once', async () => {
+    const dir = tmpDir()
+    await runGenerator(
+      emitFiles([
+        { path: path.join(dir, 'x', 'a.ts'), code: 'const a = 1' },
+        { path: path.join(dir, 'x', 'b.ts'), code: 'const b = 2' },
+        { path: path.join(dir, 'y', 'c.ts'), code: 'const c = 3' },
+      ]),
+    )
+    expect(
+      ['x/a.ts', 'x/b.ts', 'y/c.ts'].map((file) => fs.readFileSync(path.join(dir, file), 'utf8')),
+    ).toStrictEqual(['const a = 1\n', 'const b = 2\n', 'const c = 3\n'])
   })
 })

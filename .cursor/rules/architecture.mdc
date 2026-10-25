@@ -39,7 +39,7 @@ and to the code second.
 | `openapi/` | `parseOpenAPI`: oas-truth's parser wrapped in an Effect, `OpenAPIError` | generate code |
 | `file/` | every file operation, over `FileSystem`, plus `fileSystemLayer` | decide what to write |
 | `format/` | oxfmt through the `FormatOptions` reference, `FormatError` | touch the filesystem |
-| `emit/` | format → mkdir → write (`emit`, `emitFiles`) | build code |
+| `emit/` | format → mkdir → write (`emit`, `emitFiles`), `EMIT_CONCURRENCY` files at a time; `emitFiles` formats the whole batch before writing any of it | build code |
 | `syntax/` | oxc-parser: `parseSource` (tree plus the errors that stopped it), `textOf`, `walk` (with ancestors), `descendantsWhere` | build or rewrite code |
 | `merge/` | the pure merge of regenerated procedures into an existing handler file, on `syntax/`; an existing file that does not parse is returned untouched | know about OpenAPI or the filesystem |
 | `helper/` | `library.ts` (the per-lib table: object / field builders for the combined input, import candidates), `identifiers.ts` (free identifiers of generated code), `imports.ts` (import lines for what the code references), `operations.ts` (paths / webhooks → `OperationInfo`) | file I/O |
