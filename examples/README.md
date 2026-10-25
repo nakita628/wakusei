@@ -1,18 +1,26 @@
 # Examples
 
-Two versions of the same todo API, one per generation mode. Both start from the same `openapi.yaml`, keep the todos in memory and serve a Scalar API reference at `/docs`.
+The same todo API from one `openapi.yaml`, in each generation mode.
 
-| Example                            | Mode       | Schema    | What it shows                                                          |
-| ---------------------------------- | ---------- | --------- | ---------------------------------------------------------------------- |
-| [`todo-server`](./todo-server)     | `server`   | `zod`     | `@orpc/server` procedures with the handler bodies written in place     |
-| [`todo-contract`](./todo-contract) | `contract` | `valibot` | An `@orpc/contract` shared by `implement(contract)` and a typed client |
-
-Each one runs from its own directory after a `pnpm install` at the repository root, with wakusei built (`vp run wakusei#build`):
+| Example         | Mode                  | You write                                                      |
+| --------------- | --------------------- | -------------------------------------------------------------- |
+| `todo-server`   | `server`              | The handler bodies in `src/handlers`, the store, the server    |
+| `todo-contract` | `contract` + template | The same, plus `src/client.ts`, a client typed by the contract |
 
 ```bash
+vp run wakusei#build   # once, at the repository root
 cd examples/todo-server
-pnpm generate   # regenerate src/ from openapi.yaml (handler bodies are kept)
-pnpm dev        # http://localhost:3000, API reference at /docs
-pnpm test       # the routes over oRPC's OpenAPIHandler, in process
-pnpm typecheck
+pnpm generate          # openapi.yaml → src/components, src/handlers (your bodies are kept)
+pnpm dev               # http://localhost:3000
 ```
+
+```bash
+curl -X POST localhost:3000/todos -H 'content-type: application/json' -d '{"title":"Buy milk"}'
+curl -X PATCH localhost:3000/todos/<id> -H 'content-type: application/json' -d '{"done":true}'
+curl localhost:3000/todos
+curl -X DELETE localhost:3000/todos/<id>
+```
+
+In `todo-contract`, run `pnpm client` while `pnpm dev` is up.
+
+Anything the handlers share goes in its own module (`src/db.ts`): the generator owns the `@orpc/*` and `zod` imports and every top-level statement in `src/handlers` other than the exported procedures.

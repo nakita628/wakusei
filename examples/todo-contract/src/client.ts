@@ -4,14 +4,11 @@ import { OpenAPILink } from '@orpc/openapi-client/fetch'
 
 import { contract } from './contract'
 
-export type TodoClient = ContractRouterClient<typeof contract>
+const client: ContractRouterClient<typeof contract> = createORPCClient(
+  new OpenAPILink(contract, { url: 'http://localhost:3000' }),
+)
 
-/**
- * A client typed by the generated contract. It speaks plain REST (`GET /todos`, `PATCH
- * /todos/{id}`, …), so the server behind `url` can be any implementation of openapi.yaml.
- */
-export function createTodoClient(url: string, fetch: typeof globalThis.fetch = globalThis.fetch) {
-  const link = new OpenAPILink(contract, { url, fetch })
-  const client: TodoClient = createORPCClient(link)
-  return client
-}
+const todo = await client.postTodos({ title: 'Buy milk' })
+await client.patchTodosId({ id: todo.id, done: true })
+console.log(await client.getTodos())
+await client.deleteTodosId({ id: todo.id })

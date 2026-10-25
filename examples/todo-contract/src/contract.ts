@@ -1,72 +1,26 @@
 import { oc } from '@orpc/contract'
-import * as v from 'valibot'
+import * as z from 'zod'
 
-import { CreateTodoSchema, TodoSchema, TodoStatusSchema } from './components'
+import { TodoSchema } from './components'
 
 export const contract = {
   getTodos: oc
-    .route({
-      method: 'GET',
-      path: '/todos',
-      tags: ['todos'],
-      summary: 'List todos',
-      successDescription: 'The todos, oldest first',
-    })
-    .input(v.object({ status: v.optional(TodoStatusSchema) }))
-    .output(v.array(TodoSchema)),
+    .route({ method: 'GET', path: '/todos', successDescription: 'All todos' })
+    .output(z.array(TodoSchema)),
   postTodos: oc
-    .route({
-      method: 'POST',
-      path: '/todos',
-      tags: ['todos'],
-      summary: 'Create a todo',
-      successStatus: 201,
-      successDescription: 'The created todo',
-    })
-    .input(CreateTodoSchema)
-    .output(TodoSchema),
-  getTodosId: oc
-    .route({
-      method: 'GET',
-      path: '/todos/{id}',
-      tags: ['todos'],
-      summary: 'Get a todo',
-      successDescription: 'The todo',
-    })
-    .input(
-      v.object({
-        id: v.pipe(v.string(), v.transform(Number), v.number(), v.safeInteger(), v.minValue(1)),
-      }),
-    )
+    .route({ method: 'POST', path: '/todos', successDescription: 'The created todo' })
+    .input(z.object({ title: z.string().min(1) }))
     .output(TodoSchema),
   deleteTodosId: oc
     .route({
       method: 'DELETE',
       path: '/todos/{id}',
-      tags: ['todos'],
-      summary: 'Delete a todo',
       successStatus: 204,
       successDescription: 'Deleted',
     })
-    .input(
-      v.object({
-        id: v.pipe(v.string(), v.transform(Number), v.number(), v.safeInteger(), v.minValue(1)),
-      }),
-    ),
+    .input(z.object({ id: z.string() })),
   patchTodosId: oc
-    .route({
-      method: 'PATCH',
-      path: '/todos/{id}',
-      tags: ['todos'],
-      summary: 'Update a todo',
-      successDescription: 'The updated todo',
-    })
-    .input(
-      v.object({
-        id: v.pipe(v.string(), v.transform(Number), v.number(), v.safeInteger(), v.minValue(1)),
-        title: v.optional(v.pipe(v.string(), v.minCodePoints(1), v.maxCodePoints(100))),
-        status: v.optional(TodoStatusSchema),
-      }),
-    )
+    .route({ method: 'PATCH', path: '/todos/{id}', successDescription: 'The updated todo' })
+    .input(z.object({ id: z.string(), done: z.boolean() }))
     .output(TodoSchema),
 }

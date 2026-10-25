@@ -4,11 +4,8 @@
   "type": "module",
   "scripts": {
     "generate": "wakusei",
-    "dev": "tsx watch src/server.ts",
-    "start": "tsx src/server.ts",
-    "client": "tsx src/demo.ts",
-    "test": "vp test run",
-    "check": "vp check",
+    "dev": "tsx watch src/index.ts",
+    "client": "tsx src/client.ts",
     "typecheck": "tsc -p ."
   },
   "dependencies": {
@@ -17,8 +14,7 @@
     "@orpc/openapi": "^1.16.1",
     "@orpc/openapi-client": "^1.16.1",
     "@orpc/server": "^1.16.1",
-    "@orpc/valibot": "^1.16.1",
-    "valibot": "^1.5.0"
+    "zod": "^4.6.7"
   },
   "devDependencies": {
     "@types/node": "^26.6.5",

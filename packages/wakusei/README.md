@@ -119,7 +119,7 @@ export * from './orpc'
 
 ## Examples
 
-[`examples/`](https://github.com/nakita628/wakusei/tree/main/examples) holds a todo API built both ways: [`todo-server`](https://github.com/nakita628/wakusei/tree/main/examples/todo-server) (server mode, Zod) and [`todo-contract`](https://github.com/nakita628/wakusei/tree/main/examples/todo-contract) (contract mode with `template`, Valibot and a typed client).
+[`examples/`](https://github.com/nakita628/wakusei/tree/main/examples) has a todo API in server mode and in contract mode, a handful of files each.
 
 ## CLI
 

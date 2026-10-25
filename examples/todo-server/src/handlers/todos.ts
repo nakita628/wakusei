@@ -1,52 +1,23 @@
 import { os } from '@orpc/server'
 import * as z from 'zod'
 
-import { CreateTodoSchema, TodoSchema, TodoStatusSchema } from '../components'
-import { notFound } from '../errors'
-import { createTodo, deleteTodo, findTodo, listTodos, updateTodo } from '../store'
+import { TodoSchema } from '../components'
+import { getTodo, todos } from '../db'
 
 export const getTodos = os
-  .route({
-    method: 'GET',
-    path: '/todos',
-    tags: ['todos'],
-    summary: 'List todos',
-    successDescription: 'The todos, oldest first',
-  })
-  .input(z.object({ status: TodoStatusSchema.exactOptional() }))
+  .route({ method: 'GET', path: '/todos', successDescription: 'All todos' })
   .output(z.array(TodoSchema))
   .handler(async ({ input }) => {
-    return listTodos(input.status)
+    return [...todos.values()]
   })
 
 export const postTodos = os
-  .route({
-    method: 'POST',
-    path: '/todos',
-    tags: ['todos'],
-    summary: 'Create a todo',
-    successStatus: 201,
-    successDescription: 'The created todo',
-  })
-  .input(CreateTodoSchema)
+  .route({ method: 'POST', path: '/todos', successDescription: 'The created todo' })
+  .input(z.object({ title: z.string().min(1) }))
   .output(TodoSchema)
   .handler(async ({ input }) => {
-    return createTodo(input.title)
-  })
-
-export const getTodosId = os
-  .route({
-    method: 'GET',
-    path: '/todos/{id}',
-    tags: ['todos'],
-    summary: 'Get a todo',
-    successDescription: 'The todo',
-  })
-  .input(z.object({ id: z.coerce.number().int().min(1) }))
-  .output(TodoSchema)
-  .handler(async ({ input }) => {
-    const todo = findTodo(input.id)
-    if (todo === undefined) throw notFound(input.id)
+    const todo = { id: crypto.randomUUID(), title: input.title, done: false }
+    todos.set(todo.id, todo)
     return todo
   })
 
@@ -54,35 +25,20 @@ export const deleteTodosId = os
   .route({
     method: 'DELETE',
     path: '/todos/{id}',
-    tags: ['todos'],
-    summary: 'Delete a todo',
     successStatus: 204,
     successDescription: 'Deleted',
   })
-  .input(z.object({ id: z.coerce.number().int().min(1) }))
+  .input(z.object({ id: z.string() }))
   .handler(async ({ input }) => {
-    if (!deleteTodo(input.id)) throw notFound(input.id)
+    todos.delete(input.id)
   })
 
 export const patchTodosId = os
-  .route({
-    method: 'PATCH',
-    path: '/todos/{id}',
-    tags: ['todos'],
-    summary: 'Update a todo',
-    successDescription: 'The updated todo',
-  })
-  .input(
-    z.object({
-      id: z.coerce.number().int().min(1),
-      title: z.string().min(1).max(100).exactOptional(),
-      status: TodoStatusSchema.exactOptional(),
-    }),
-  )
+  .route({ method: 'PATCH', path: '/todos/{id}', successDescription: 'The updated todo' })
+  .input(z.object({ id: z.string(), done: z.boolean() }))
   .output(TodoSchema)
   .handler(async ({ input }) => {
-    const { id, ...patch } = input
-    const todo = updateTodo(id, patch)
-    if (todo === undefined) throw notFound(id)
+    const todo = { ...getTodo(input.id), done: input.done }
+    todos.set(todo.id, todo)
     return todo
   })

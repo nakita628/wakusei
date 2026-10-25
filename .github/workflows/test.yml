@@ -47,6 +47,4 @@ jobs:
 
       - run: vp run --filter './examples/*' typecheck
 
-      - run: vp run --filter './examples/*' test
-
       - run: vp run check
