@@ -44,7 +44,7 @@ and to the code second.
 | `merge/` | the pure merge of regenerated procedures into an existing handler file, on `syntax/`; an existing file that does not parse is returned untouched | know about OpenAPI or the filesystem |
 | `helper/` | `library.ts` (the per-lib table: object / field builders for the combined input, import candidates), `identifiers.ts` (free identifiers of generated code), `imports.ts` (import lines for what the code references), `operations.ts` (paths / webhooks → `OperationInfo`) | file I/O |
 | `generator/` | pure code builders: `schemas.ts` (oas-truth's `makeSchemaDeclarations` with wakusei's type naming), `components.ts` (oas-truth's `make*Declarations`), `procedures.ts` (route / input / output chains, server procedures, the contract, `implement` stubs) | touch the filesystem, run an Effect |
-| `core/` | orchestration: `index.ts` (`orpc()`), `layout.ts` (config → paths and import specifiers), `components.ts`, `procedures.ts` | assemble code strings (`make*Code` lives in `generator`) |
+| `core/` | orchestration: `index.ts` (`orpc()`), `layout.ts` (config → paths and import specifiers), `packages.ts` (the package of each output, from the nearest `package.json`), `components.ts`, `procedures.ts` | assemble code strings (`make*Code` lives in `generator`) |
 | `cli/` | the `wakusei` command on `effect/cli`; `watch.ts` is the config pass and the `--watch` loop | generator logic |
 | `vite-plugin/` | `wakuseiVite()`: reload the config, regenerate on change, clean split component directories and stale outputs | generator logic |
 | `testing/` | `runGenerator` / `runGeneratorError` | ship in `dist` |
@@ -99,6 +99,20 @@ handler files no resource maps to any more.
 
 Everything else — components, the split schemas directory, the contract, a single-file output —
 is the generator's and is rewritten wholesale.
+
+## How a generated file imports the schemas
+
+The schemas are the one output other generated files import: every component kind beside them,
+the handlers and the contract. oas-truth writes a `$ref` in any kind as a schema identifier, so no
+kind imports another. The specifier follows from where the files are written, never from config:
+
+- A package is what the nearest `package.json` above an output delimits (`core/packages.ts`).
+- Inside the package of the schemas: under `pathAlias` when the schemas are inside
+  `<output>/src`, relatively otherwise.
+- From another package: `components.schemas.package`, or `components.package` next to
+  `components.output`. Without one the run fails with `PackageError`, naming the field.
+- `import` was removed and is refused with that rule as the message. Do not bring back a field
+  that sets a specifier by hand.
 
 ## The oas-truth boundary
 

@@ -64,6 +64,9 @@ type-aware lint sees the default lib there: sort a fresh array with `.sort()`, n
   `cases/<name>/` that has a `wakusei.config.ts`, writing to `__generated__/<name>` (gitignored).
   A case with an `overlay` link gets `overlays/handlers` copied in first — handler bodies a user
   already wrote — so the run exercises the merge, and the merged files are what gets checked.
+- An overlay is either that one link or a directory of real files: `zod-package` brings the
+  `package.json` that makes its schemas a package of their own. Never a link inside an overlay
+  directory: the copy keeps it a link, and the CLI then writes through it into `overlays/`.
 - `scripts/typecheck.mjs` runs `tsc -p cases/<name>` for every case with a `tsconfig.json`,
   under strict, `exactOptionalPropertyTypes` and `noUncheckedIndexedAccess`, against the real
   `@orpc/*`, zod, valibot and arktype. A generated stub next to an `.output()` does not

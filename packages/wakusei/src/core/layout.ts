@@ -37,6 +37,7 @@ export type WakuseiConfig = {
   readonly components?:
     | ({
         readonly output?: string | undefined
+        readonly package?: string | undefined
         readonly schemas?: ComponentTarget | undefined
       } & {
         readonly [K in ComponentKind]?: ComponentTarget | undefined
@@ -48,30 +49,42 @@ export type WakuseiConfig = {
 export type ComponentTarget = {
   readonly output: string
   readonly split?: boolean | undefined
-  readonly import?: string | undefined
   readonly exportTypes?: boolean | undefined
+  /** `components.schemas` alone: the package it is written into. */
+  readonly package?: string | undefined
 }
-
-/** A module the generator writes, and the specifier others must use for it when overridden. */
-export type Target = { readonly file: string; readonly import: string | undefined }
 
 export type Layout = {
   /** The absolute base directory every relative output resolves against. */
   readonly base: string
   readonly pathAlias: string | undefined
-  /** The module holding every component schema; a directory with `index.ts` when split. */
-  readonly schemas: Target & { readonly split: boolean }
+  /**
+   * The module holding every component schema; a directory with `index.ts` when split.
+   * `package` is the name the generated files of other packages import it by.
+   */
+  readonly schemas: {
+    readonly file: string
+    readonly split: boolean
+    readonly package: string | undefined
+  }
   /** Whether the kinds below live in the schemas module itself. */
   readonly aggregate: boolean
   /** The Components kinds the config turns on, each with its file or split directory. */
-  readonly components: readonly (Target & {
+  readonly components: readonly {
     readonly kind: ComponentKind
     readonly split: boolean
-  })[]
+    readonly file: string
+  }[]
   /** `@orpc/server` procedures (server) or `implement(contract)` stubs (contract + template). */
   readonly handlersDir: string | undefined
   /** The `@orpc/contract` router (contract mode). */
   readonly contract: string | undefined
+  /**
+   * The package each directory generated files are written into belongs to: the directory
+   * of the nearest `package.json` above it. Empty until `resolvePackageRoots` fills it, and
+   * a directory it does not list is in the package of the schemas.
+   */
+  readonly packageRoots: ReadonlyMap<string, string | undefined>
 }
 
 const EXPORT_FLAGS: { readonly [K in ComponentKind]: ExportFlag } = {
@@ -138,7 +151,11 @@ export function resolveLayout(config: WakuseiConfig): Layout {
   return {
     base,
     pathAlias: config.pathAlias,
-    schemas: { file: schemas, split, import: components?.schemas?.import },
+    schemas: {
+      file: schemas,
+      split,
+      package: aggregate ? components?.package : components?.schemas?.package,
+    },
     aggregate,
     components: enabled.map((kind) => {
       const target = components?.[kind]
@@ -154,12 +171,41 @@ export function resolveLayout(config: WakuseiConfig): Layout {
                 ? (target?.output ?? DEFAULT_FILES[kind].replace(/\.ts$/u, ''))
                 : toFile(target?.output ?? DEFAULT_FILES[kind]),
             ),
-        import: target?.import,
       }
     }),
     handlersDir: handlersDir === undefined ? undefined : path.resolve(base, handlersDir),
     contract: config.mode === 'contract' ? path.resolve(base, 'src/contract.ts') : undefined,
+    packageRoots: new Map(),
   }
+}
+
+/** The directory a schemas import is written from, for a component target. */
+export function componentDirectory(target: { readonly file: string; readonly split: boolean }) {
+  return target.split ? target.file : path.dirname(target.file)
+}
+
+/**
+ * Every directory a generated file that imports the schemas is written into: each
+ * component kind beside them, the handlers and the contract.
+ */
+export function schemasImporters(layout: Layout) {
+  return [
+    ...(layout.aggregate ? [] : layout.components.map(componentDirectory)),
+    ...(layout.handlersDir === undefined ? [] : [layout.handlersDir]),
+    ...(layout.contract === undefined ? [] : [path.dirname(layout.contract)]),
+  ]
+}
+
+/** The directory the schemas are written into. */
+export function schemasDirectory(layout: Layout) {
+  return componentDirectory(layout.schemas)
+}
+
+/** Whether a directory is the package of the schemas, as far as `packageRoots` knows. */
+function isSchemasPackage(layout: Layout, fromDir: string) {
+  const roots = layout.packageRoots
+  const own = roots.get(schemasDirectory(layout))
+  return !roots.has(fromDir) || roots.get(fromDir) === own
 }
 
 /** `export type` for a kind: the top-level `export*Types` flag or `components.<kind>.exportTypes`. */
@@ -191,19 +237,29 @@ export function makeRelativeSpecifier(fromDir: string, file: string) {
   return rel.startsWith('.') ? rel : `./${rel}`
 }
 
+/** Whether `file` sits under `dir`. */
+function isInside(dir: string, file: string) {
+  const rel = path.relative(dir, file)
+  return rel !== '' && !rel.startsWith('..') && !path.isAbsolute(rel)
+}
+
 /**
- * The specifier a module in `fromDir` imports the schemas with: the `import` override,
- * the path alias (which stands for `<output>/src`), or a relative path.
+ * The specifier a module in `fromDir` imports the schemas with: by `package` from another
+ * package, under the path alias (which stands for `<output>/src`) when the schemas are in
+ * there, and relatively otherwise. `resolvePackageRoots` has seen to it that another
+ * package names its `package`.
  */
-export function makeSchemasSpecifier(layout: Layout, fromDir: string, override?: string) {
-  const explicit = override ?? layout.schemas.import
-  if (explicit) return explicit
+export function makeSchemasSpecifier(layout: Layout, fromDir: string) {
+  if (!isSchemasPackage(layout, fromDir) && layout.schemas.package !== undefined) {
+    return layout.schemas.package
+  }
   const file = layout.schemas.split
     ? path.join(layout.schemas.file, 'index.ts')
     : layout.schemas.file
-  if (layout.pathAlias) {
+  const src = path.join(layout.base, 'src')
+  if (layout.pathAlias !== undefined && isInside(src, file)) {
     const alias = layout.pathAlias.replace(/\/$/u, '')
-    const rel = toSpecifier(path.relative(path.join(layout.base, 'src'), file))
+    const rel = toSpecifier(path.relative(src, file))
     return rel === '' ? alias : `${alias}/${rel}`
   }
   return makeRelativeSpecifier(fromDir, file)

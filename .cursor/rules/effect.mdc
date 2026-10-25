@@ -79,9 +79,9 @@ export function readFile(path: string) {
 - A new option is a schema field whose check message names what is expected. Keep
   `defineConfig`'s input type (`ConfigSchema.Encoded`) accurate: it is what users get completion
   and errors from while they type.
-- Values spliced into a generated `'...'` literal (`pathAlias`, `prefix`, `components.*.import`)
-  are checked with `SAFE_IN_STRING_LITERAL` so a quote or newline names the config field
-  instead of breaking the generated file.
+- Values spliced into a generated `'...'` literal are checked with `SAFE_IN_STRING_LITERAL`, so a
+  quote or newline names the config field instead of breaking the generated file: `pathAlias`,
+  `prefix`, `components.package` and `components.schemas.package`.
 
 ## The CLI
 

@@ -57,14 +57,24 @@ const DirectorySchema = Schema.String.check(
  */
 const SAFE_IN_STRING_LITERAL = /^[^\s'"`\\]+$/u
 
-const ImportSchema = Schema.String.check(
+/**
+ * `import` named the specifier one output was imported by. A generated file now works the
+ * specifier out itself, so the key is refused with where that rule lives.
+ */
+const RemovedImportSchema = Schema.Never.annotate({
+  message:
+    'import was removed: a generated file imports the schemas relatively, under pathAlias inside `<output>/src`, or by `package` from another package.',
+})
+
+const PackageSchema = Schema.String.check(
   Schema.isPattern(SAFE_IN_STRING_LITERAL, {
     message: 'must be a module specifier, with no whitespace or quotes',
   }),
 ).annotate({
-  title: 'Import specifier',
-  description: 'Module specifier generated files use to import this output.',
-  examples: ['@/schemas', '../schemas', '.'],
+  title: 'Package name',
+  description:
+    'Module the generated files of other packages import the schemas from: the name of the package they are written into. Files in the same package import them relatively, or under `pathAlias`.',
+  examples: ['@packages/schemas'],
 })
 
 const PathAliasSchema = Schema.String.check(
@@ -73,7 +83,8 @@ const PathAliasSchema = Schema.String.check(
   }),
 ).annotate({
   title: 'Path alias',
-  description: 'Import prefix used instead of relative paths; stands for `<output>/src`.',
+  description:
+    'Import prefix used instead of relative paths; stands for `<output>/src`. Only a file in the package of `<output>/src` imports by it.',
   examples: ['@/', '~/'],
 })
 
@@ -135,29 +146,50 @@ function splitUnion<Shared extends Schema.Struct.Fields>(shared: Shared) {
 }
 
 const OutputSchema = splitUnion({
-  import: Schema.optionalKey(ImportSchema),
+  import: Schema.optionalKey(RemovedImportSchema),
 }).annotate({
   title: 'Generated output target',
   description:
     'Where one group of generated code is written. `split` picks directory mode or single-file mode.',
   examples: [
     { split: false, output: 'src/responses.ts' },
-    { split: true, output: 'src/responses', import: '@/schemas' },
+    { split: true, output: 'src/responses' },
   ],
 })
 
-const ExportTypesOutputSchema = splitUnion({
-  import: Schema.optionalKey(ImportSchema),
+const exportTypesFields = {
+  import: Schema.optionalKey(RemovedImportSchema),
   exportTypes: FlagSchema.annotate({
     description: 'Also export the TypeScript type inferred from each generated schema.',
   }),
-}).annotate({
+}
+
+const ExportTypesOutputSchema = splitUnion(exportTypesFields).annotate({
   title: 'Generated output target with type exports',
   description:
     'Same as a generated output target, plus `exportTypes` for schemas, parameters, headers and mediaTypes.',
   examples: [
     { split: false, output: 'src/schemas.ts', exportTypes: true },
-    { split: true, output: 'src/schemas', import: '@/schemas', exportTypes: true },
+    { split: true, output: 'src/parameters', exportTypes: true },
+  ],
+})
+
+/** `components.schemas`: the one output every other generated file imports. */
+const SchemasOutputSchema = splitUnion({
+  ...exportTypesFields,
+  package: Schema.optionalKey(PackageSchema),
+}).annotate({
+  title: 'Schemas output target',
+  description:
+    'Where `components.schemas` is written. `package` names the package it is written into, for the generated files of other packages.',
+  examples: [
+    { split: false, output: 'src/schemas.ts', exportTypes: true },
+    {
+      split: true,
+      output: 'packages/schemas/src',
+      package: '@packages/schemas',
+      exportTypes: false,
+    },
   ],
 })
 
@@ -170,7 +202,14 @@ const ComponentsSchema = Schema.Struct({
       examples: ['src/components/index.ts'],
     }),
   ),
-  schemas: Schema.optionalKey(ExportTypesOutputSchema),
+  package: Schema.optionalKey(
+    PackageSchema.annotate({
+      description:
+        'Module the generated files of other packages import `output` from: the name of the package it is written into. Goes with `output`; per-type outputs name it on `schemas`.',
+      examples: ['@packages/components'],
+    }),
+  ),
+  schemas: Schema.optionalKey(SchemasOutputSchema),
   responses: Schema.optionalKey(OutputSchema),
   parameters: Schema.optionalKey(ExportTypesOutputSchema),
   examples: Schema.optionalKey(OutputSchema),
@@ -193,20 +232,29 @@ const ComponentsSchema = Schema.Struct({
       },
     ),
   )
+  .check(
+    Schema.makeFilter(
+      (components) => components.package === undefined || components.output !== undefined,
+      {
+        message:
+          'components.package goes with components.output; with per-type outputs, set components.schemas.package.',
+      },
+    ),
+  )
   .annotate({
     title: 'Components output',
     description:
-      'Destination for `components`. Either `output` for one file, or per-type fields that each get their own target. Each per-type field is `split` + `import`; schemas, parameters, headers and mediaTypes also take `exportTypes`.',
+      'Destination for `components`. Either `output` (with its `package`) for one file, or per-type fields that each get their own target. Each per-type field takes `split`; schemas, parameters, headers and mediaTypes also take `exportTypes`, and schemas takes `package`.',
     examples: [
       { output: 'src/components/index.ts' },
       {
         schemas: {
           split: true,
-          output: 'src/schemas',
-          import: '@/schemas',
+          output: 'packages/schemas/src',
+          package: '@packages/schemas',
           exportTypes: true,
         },
-        responses: { split: true, output: 'src/responses', import: '@/schemas' },
+        responses: { split: true, output: 'src/responses' },
       },
     ],
   })

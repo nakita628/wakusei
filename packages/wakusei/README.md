@@ -175,7 +175,9 @@ New routes are added as stubs. Deleted routes are removed, and a handler file no
 
 `mode: 'contract'` writes an `@orpc/contract` router; `template` opts into `implement(contract)` stubs (rejected in server mode). `components.output` (one aggregate file) is mutually exclusive with the per-type fields (`schemas`, `responses`, ...). Server mode is the one-shot CLI (`wakusei openapi.yaml`) and does not need a config file.
 
-`pathAlias`, `prefix` and `components.*.import` are checked here because they are spliced into the generated code verbatim: a quote, a backslash or whitespace would close a `'...'` literal early.
+`pathAlias`, `prefix` and `package` are checked here because they are spliced into the generated code verbatim: a quote, a backslash or whitespace would close a `'...'` literal early.
+
+A generated file imports the schemas relatively, under `pathAlias` when they are written inside `<output>/src`, and by `package` when they are written into another package — the directory of the nearest `package.json` above an output is its package. A file that would import them from another package without one fails the run and names the field to set. `import` was removed: the specifier follows from where the files are written.
 
 ```ts
 // wakusei.config.ts
@@ -207,7 +209,7 @@ export default defineConfig({
   // Prefix prepended to every generated route path
   prefix: '/api/v1',
 
-  // Import prefix that stands for <output>/src
+  // Import prefix that stands for <output>/src, for files in that package
   pathAlias: '@/',
 
   // Export options (OpenAPI Components Object). A flagged kind is generated;
@@ -232,24 +234,25 @@ export default defineConfig({
   // `output` (single file) and the per-type fields below are mutually exclusive.
   // `exportTypes` applies only to schemas / parameters / headers / mediaTypes.
   // `split: true` writes one file per entry into a directory.
+  // `package` names the package an output is written into, for the generated
+  // files of other packages: `components.package` goes with `output`.
   components: {
     // output: 'src/components/index.ts',
+    // package: '@packages/components',
     schemas: {
-      output: 'src/schemas',
+      output: 'packages/schemas/src',
       exportTypes: true,
       split: true,
-      import: '@/schemas',
+      package: '@packages/schemas',
     },
     responses: {
       output: 'src/responses',
       split: true,
-      import: '@/schemas',
     },
     parameters: {
       output: 'src/parameters',
       exportTypes: true,
       split: true,
-      import: '@/schemas',
     },
     examples: {
       output: 'src/examples',
@@ -258,13 +261,11 @@ export default defineConfig({
     requestBodies: {
       output: 'src/requestBodies',
       split: true,
-      import: '@/schemas',
     },
     headers: {
       output: 'src/headers',
       exportTypes: true,
       split: true,
-      import: '@/schemas',
     },
     securitySchemes: {
       output: 'src/securitySchemes',
@@ -277,18 +278,15 @@ export default defineConfig({
     callbacks: {
       output: 'src/callbacks',
       split: true,
-      import: '@/schemas',
     },
     pathItems: {
       output: 'src/pathItems',
       split: true,
-      import: '@/schemas',
     },
     mediaTypes: {
       output: 'src/mediaTypes',
       exportTypes: true,
       split: true,
-      import: '@/schemas',
     },
   },
 })

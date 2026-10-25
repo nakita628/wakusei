@@ -32,6 +32,17 @@ export function mkdir(dir: string) {
   })
 }
 
+/**
+ * Whether a path exists. A path that cannot be checked — under a file, say — is taken as
+ * absent rather than failing the caller.
+ */
+export function exists(path: string) {
+  return Effect.gen(function* () {
+    const fs = yield* FileSystem.FileSystem
+    return yield* fs.exists(path).pipe(Effect.orElseSucceed(() => false))
+  })
+}
+
 /** Entry names of a directory. A directory that does not exist reads as empty. */
 export function readdir(dir: string) {
   return Effect.gen(function* () {
