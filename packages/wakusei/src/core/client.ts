@@ -22,13 +22,14 @@ function makeUrl(baseUrl: BaseUrl) {
   if (typeof baseUrl === 'string') {
     return { imports: [], url: '()=>globalThis.location.origin' } as const
   }
-  if ('import' in baseUrl) {
+  if (baseUrl.import !== undefined) {
+    const name = baseUrl.name ?? 'env'
     return {
-      imports: [`import{${baseUrl.name}}from'${baseUrl.import}'`],
-      url: `${baseUrl.name}.${baseUrl.env}`,
+      imports: [`import{${name}}from'${baseUrl.import}'`],
+      url: `${name}.${baseUrl.env}`,
     } as const
   }
-  return { imports: [], url: `${baseUrl.source}.${baseUrl.env}!` } as const
+  return { imports: [], url: `${baseUrl.source ?? 'import.meta.env'}.${baseUrl.env}!` } as const
 }
 
 /** The client module: one `OpenAPILink` over the contract, and the client typed by it. */

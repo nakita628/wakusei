@@ -296,55 +296,57 @@ const ClientSchema = Schema.Struct({
           "a fixed URL is not taken: leave baseUrl out (or set '/') for the same origin, or read it from the environment with { env } or { env, import }",
       }),
     ),
-    // An object that names a module is read as one: the member that takes `import` stands
-    // first, since the other would take the object as well and leave `import` out.
+    // One object for both environment forms, told apart by `import`: as two union members,
+    // a mistake in one (`source: 'window'`) would be reported as an excess key of the other.
     Schema.Struct({
       env: EnvironmentVariableSchema.annotate({
         title: 'Environment variable',
         description:
-          'The property of the imported environment object that holds the base URL: `API_URL` for `env.API_URL`.',
-        examples: ['API_URL'],
+          'The variable that holds the base URL, asserted present with `!` (`VITE_API_URL` for a Vite build, `API_URL` for Node.js), or with `import`, the property of the imported environment object (`API_URL` for `env.API_URL`).',
+        examples: ['VITE_API_URL', 'API_URL'],
       }),
-      import: Schema.String.check(
-        Schema.isPattern(SAFE_IN_STRING_LITERAL, {
-          message: 'must be a module specifier, with no whitespace or quotes',
+      source: Schema.optionalKey(
+        Schema.Literals(['import.meta.env', 'process.env']).annotate({
+          title: 'Where the variable is read from',
+          description:
+            '`import.meta.env` (the default) for code a bundler such as Vite builds, `process.env` for code Node.js runs. Not with `import`.',
+          examples: ['import.meta.env', 'process.env'],
         }),
-      ).annotate({
-        title: 'Import specifier',
-        description:
-          'The module of yours that exports the environment object, written into the client file as it stands: `@/env`, `../env`.',
-        examples: ['@/env', '../env'],
-      }),
-      name: Schema.String.check(
-        Schema.isPattern(/^[A-Za-z_$][\w$]*$/u, { message: 'must be a JavaScript identifier' }),
-        Schema.makeFilter((name) => !CLIENT_OWN_NAMES.includes(name), {
-          message: `must not be a name the client file binds itself (${CLIENT_OWN_NAMES.join(', ')})`,
+      ),
+      import: Schema.optionalKey(
+        Schema.String.check(
+          Schema.isPattern(SAFE_IN_STRING_LITERAL, {
+            message: 'must be a module specifier, with no whitespace or quotes',
+          }),
+        ).annotate({
+          title: 'Import specifier',
+          description:
+            'The module of yours that exports the environment object, written into the client file as it stands: `@/env`, `../env`.',
+          examples: ['@/env', '../env'],
         }),
-      )
-        .pipe(Schema.withDecodingDefault(Effect.succeed('env')))
-        .annotate({
+      ),
+      name: Schema.optionalKey(
+        Schema.String.check(
+          Schema.isPattern(/^[A-Za-z_$][\w$]*$/u, { message: 'must be a JavaScript identifier' }),
+          Schema.makeFilter((name) => !CLIENT_OWN_NAMES.includes(name), {
+            message: `must not be a name the client file binds itself (${CLIENT_OWN_NAMES.join(', ')})`,
+          }),
+        ).annotate({
           title: 'Environment export name',
           description:
             'The named export of `import` that is the environment object, `env` when left out.',
           examples: ['env'],
         }),
-    }),
-    Schema.Struct({
-      env: EnvironmentVariableSchema.annotate({
-        title: 'Environment variable',
-        description:
-          'The environment variable the base URL is read from, asserted present with `!`: `VITE_API_URL` for a Vite build, `API_URL` for Node.js.',
-        examples: ['VITE_API_URL', 'API_URL'],
+      ),
+    }).check(
+      Schema.makeFilter((url) => url.import === undefined || url.source === undefined, {
+        message:
+          'source goes with { env } alone: with import, the property is read from the environment object the module exports',
       }),
-      source: Schema.Literals(['import.meta.env', 'process.env'])
-        .pipe(Schema.withDecodingDefault(Effect.succeed('import.meta.env')))
-        .annotate({
-          title: 'Where the variable is read from',
-          description:
-            '`import.meta.env` (the default) for code a bundler such as Vite builds, `process.env` for code Node.js runs.',
-          examples: ['import.meta.env', 'process.env'],
-        }),
-    }),
+      Schema.makeFilter((url) => url.import !== undefined || url.name === undefined, {
+        message: 'name goes with { env, import }: it is the export of import to read env from',
+      }),
+    ),
   ])
     .pipe(Schema.withDecodingDefault(Effect.succeed('/')))
     .annotate({

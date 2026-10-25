@@ -49,8 +49,12 @@ export type WakuseiConfig = {
 /** Where the client reads its base URL from: the origin of the page, or the environment. */
 export type BaseUrl =
   | string
-  | { readonly env: string; readonly source: 'import.meta.env' | 'process.env' }
-  | { readonly env: string; readonly import: string; readonly name: string }
+  | {
+      readonly env: string
+      readonly source?: 'import.meta.env' | 'process.env' | undefined
+      readonly import?: string | undefined
+      readonly name?: string | undefined
+    }
 
 /** `client`, contract mode alone. */
 export type ClientConfig = {

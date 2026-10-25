@@ -60,23 +60,14 @@ describe('parseConfig', () => {
     expect(await parse(config)).toStrictEqual({ ...config, ...defaults, client: { baseUrl: '/' } })
   })
 
-  it('fills in where a client reads its variable and the name of an environment object', async () => {
-    const env = { ...base, mode: 'contract', client: { baseUrl: { env: 'VITE_API_URL' } } }
-    expect(await parse(env)).toStrictEqual({
-      ...env,
-      ...defaults,
-      client: { baseUrl: { env: 'VITE_API_URL', source: 'import.meta.env' } },
-    })
-    const imported = {
-      ...base,
-      mode: 'contract',
-      client: { baseUrl: { env: 'API_URL', import: '@/env' }, credentials: 'include' },
-    }
-    expect(await parse(imported)).toStrictEqual({
-      ...imported,
-      ...defaults,
-      client: { baseUrl: { env: 'API_URL', import: '@/env', name: 'env' }, credentials: 'include' },
-    })
+  it.each([
+    { env: 'VITE_API_URL' },
+    { env: 'API_URL', source: 'process.env' },
+    { env: 'API_URL', import: '@/env' },
+    { env: 'API_URL', import: '../env', name: 'config' },
+  ])('accepts the client base URL %o as written', async (baseUrl) => {
+    const config = { ...base, mode: 'contract', client: { baseUrl, credentials: 'include' } }
+    expect(await parse(config)).toStrictEqual({ ...config, ...defaults })
   })
 
   it.each(['openapi.yaml', 'openapi.json', 'main.tsp'])('accepts %s as input', async (input) => {
@@ -260,6 +251,25 @@ describe('parseConfig', () => {
         client: { baseUrl: { env: 'API_URL', import: '@/env', name: 'contract' } },
       },
       'client.baseUrl.name: must not be a name the client file binds itself (client, Client, contract, createORPCClient, ContractRouterClient, OpenAPILink)',
+    ],
+    [
+      'an unknown client base URL source',
+      { ...base, mode: 'contract', client: { baseUrl: { env: 'API_URL', source: 'window' } } },
+      'client.baseUrl.source: Expected "import.meta.env" | "process.env"',
+    ],
+    [
+      'a client base URL with both import and source',
+      {
+        ...base,
+        mode: 'contract',
+        client: { baseUrl: { env: 'API_URL', import: '@/env', source: 'process.env' } },
+      },
+      'client.baseUrl: source goes with { env } alone: with import, the property is read from the environment object the module exports',
+    ],
+    [
+      'a client base URL name without import',
+      { ...base, mode: 'contract', client: { baseUrl: { env: 'API_URL', name: 'env' } } },
+      'client.baseUrl: name goes with { env, import }: it is the export of import to read env from',
     ],
     [
       'an unknown client credentials mode',
