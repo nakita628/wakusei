@@ -42,11 +42,14 @@ export function makeClient(client: ClientConfig, contractSpecifier: string) {
     [
       "import{createORPCClient}from'@orpc/client'",
       "import type{ContractRouterClient}from'@orpc/contract'",
+      "import type{JsonifiedClient}from'@orpc/openapi-client'",
       "import{OpenAPILink}from'@orpc/openapi-client/fetch'",
       `import{contract}from'${contractSpecifier}'`,
       ...imports,
     ].join('\n'),
-    'export type Client=ContractRouterClient<typeof contract>',
+    // OpenAPILink carries every value as JSON, so the outputs are typed as what JSON gives
+    // back (a `Date` as a string), as the oRPC guide types such a client.
+    'export type Client=JsonifiedClient<ContractRouterClient<typeof contract>>',
     `export const client:Client=createORPCClient(new OpenAPILink(contract,{url:${url}${fetch}}))`,
   ].join('\n\n')
 }

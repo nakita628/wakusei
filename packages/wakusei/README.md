@@ -151,7 +151,7 @@ The whole directory holding the input document is watched, so a TypeSpec entry t
 
 ## Client
 
-In contract mode, `client` writes an oRPC client of the contract to `src/client.ts`. It talks to the server over [`OpenAPILink`](https://orpc.dev/docs/openapi/client/openapi-link), so any server that implements the document answers it, and `ContractRouterClient` types it.
+In contract mode, `client` writes an oRPC client of the contract to `src/client.ts`. It talks to the server over [`OpenAPILink`](https://orpc.dev/docs/openapi/client/openapi-link), so any server that implements the document answers it. It is typed `JsonifiedClient<ContractRouterClient<typeof contract>>`, as the oRPC guide types an `OpenAPILink` client: what travels as JSON comes back as JSON (a `Date` as a string).
 
 ```ts
 // wakusei.config.ts

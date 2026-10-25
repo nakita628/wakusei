@@ -456,6 +456,7 @@ export const deletePostsPostId = os.deletePostsPostId.handler(async ({ input }) 
 describe('client', () => {
   const header = `import { createORPCClient } from '@orpc/client'
 import type { ContractRouterClient } from '@orpc/contract'
+import type { JsonifiedClient } from '@orpc/openapi-client'
 import { OpenAPILink } from '@orpc/openapi-client/fetch'
 `
 
@@ -464,7 +465,7 @@ import { OpenAPILink } from '@orpc/openapi-client/fetch'
     expect(listFiles('src')).toStrictEqual(['client.ts', 'components/index.ts', 'contract.ts'])
     expect(read('src/client.ts')).toBe(`${header}import { contract } from './contract'
 
-export type Client = ContractRouterClient<typeof contract>
+export type Client = JsonifiedClient<ContractRouterClient<typeof contract>>
 
 export const client: Client = createORPCClient(
   new OpenAPILink(contract, { url: () => globalThis.location.origin }),
@@ -479,7 +480,7 @@ export const client: Client = createORPCClient(
     })
     expect(read('src/client.ts')).toBe(`${header}import { contract } from './contract'
 
-export type Client = ContractRouterClient<typeof contract>
+export type Client = JsonifiedClient<ContractRouterClient<typeof contract>>
 
 export const client: Client = createORPCClient(
   new OpenAPILink(contract, {
@@ -505,7 +506,7 @@ export const client: Client = createORPCClient(
     expect(read('src/client.ts')).toBe(`${header}import { contract } from './contract'
 import { config } from '../env'
 
-export type Client = ContractRouterClient<typeof contract>
+export type Client = JsonifiedClient<ContractRouterClient<typeof contract>>
 
 export const client: Client = createORPCClient(new OpenAPILink(contract, { url: config.API_URL }))
 `)
@@ -513,13 +514,13 @@ export const client: Client = createORPCClient(new OpenAPILink(contract, { url: 
 
   it('writes the client to client.output, importing the contract under pathAlias', async () => {
     await generate({ mode: 'contract', pathAlias: '@/', client: { output: 'src/lib/api.ts' } })
-    expect(read('src/lib/api.ts').split('\n')[3]).toBe("import { contract } from '@/contract'")
+    expect(read('src/lib/api.ts').split('\n')[4]).toBe("import { contract } from '@/contract'")
   })
 
   it('imports the contract of a single file relatively', async () => {
     await generate({ mode: 'contract', output: 'src/api.ts', client: {} })
     expect(listFiles('src')).toStrictEqual(['api.ts', 'client.ts'])
-    expect(read('src/client.ts').split('\n')[3]).toBe("import { contract } from './api'")
+    expect(read('src/client.ts').split('\n')[4]).toBe("import { contract } from './api'")
   })
 
   it('imports the contract by client.import from another package', async () => {
@@ -529,7 +530,7 @@ export const client: Client = createORPCClient(new OpenAPILink(contract, { url: 
       mode: 'contract',
       client: { output: 'web/src/client.ts', import: '@packages/api' },
     })
-    expect(read('web/src/client.ts').split('\n')[3]).toBe(
+    expect(read('web/src/client.ts').split('\n')[4]).toBe(
       "import { contract } from '@packages/api'",
     )
   })
