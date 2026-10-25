@@ -72,7 +72,7 @@ function showHelp(message: string) {
  * everything else (`template`, `components`, `pathAlias`, `format`, ...) — once, or on
  * every change with `--watch`.
  *
- * The generator pipeline pulls in the OpenAPI parser, the TypeSpec compiler and ts-morph.
+ * The generator pipeline pulls in the OpenAPI parser, the TypeSpec compiler and oxc-parser.
  * `--help`, `--version`, `--completions` and every rejected command line must not pay for
  * that, so it is loaded lazily rather than at module scope.
  */

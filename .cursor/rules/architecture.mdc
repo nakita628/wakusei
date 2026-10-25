@@ -13,8 +13,9 @@ the `lint` section of `packages/wakusei/vite.config.ts`, each with a message say
 directory may import:
 
 ```text
-leaves       config  file  format  merge  openapi     (no project-internal imports)
-             helper -> helper only
+leaves       config  file  format  syntax  openapi    (no project-internal imports)
+merge     -> syntax
+helper    -> helper, syntax
 generator -> helper
 emit      -> format, file
 core      -> helper, generator, emit, file, format, merge, openapi
@@ -39,7 +40,8 @@ and to the code second.
 | `file/` | every file operation, over `FileSystem`, plus `fileSystemLayer` | decide what to write |
 | `format/` | oxfmt through the `FormatOptions` reference, `FormatError` | touch the filesystem |
 | `emit/` | format → mkdir → write (`emit`, `emitFiles`) | build code |
-| `merge/` | the pure merge of regenerated procedures into an existing handler file (ts-morph) | know about OpenAPI or the filesystem |
+| `syntax/` | oxc-parser: `parseSource` (tree plus the errors that stopped it), `textOf`, `walk` (with ancestors), `descendantsWhere` | build or rewrite code |
+| `merge/` | the pure merge of regenerated procedures into an existing handler file, on `syntax/`; an existing file that does not parse is returned untouched | know about OpenAPI or the filesystem |
 | `helper/` | `library.ts` (the per-lib table: object / field builders for the combined input, import candidates), `identifiers.ts` (free identifiers of generated code), `imports.ts` (import lines for what the code references), `operations.ts` (paths / webhooks → `OperationInfo`) | file I/O |
 | `generator/` | pure code builders: `schemas.ts` (oas-truth's `makeSchemaDeclarations` with wakusei's type naming), `components.ts` (oas-truth's `make*Declarations`), `procedures.ts` (route / input / output chains, server procedures, the contract, `implement` stubs) | touch the filesystem, run an Effect |
 | `core/` | orchestration: `index.ts` (`orpc()`), `layout.ts` (config → paths and import specifiers), `components.ts`, `procedures.ts` | assemble code strings (`make*Code` lives in `generator`) |

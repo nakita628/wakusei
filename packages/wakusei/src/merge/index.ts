@@ -1,11 +1,47 @@
-import type { CallExpression, ImportDeclaration, SourceFile, VariableStatement } from 'ts-morph'
-import { Node, Project, SyntaxKind } from 'ts-morph'
+import type {
+  BlockStatement,
+  CallExpression,
+  ExportNamedDeclaration,
+  FunctionBody,
+  ImportDeclaration,
+  Node,
+  Program,
+} from 'oxc-parser'
+
+import { parseSource, textOf, walk } from '../syntax/index.js'
 
 /** The chain calls the generator writes; a `.use()` is re-inserted before the one it preceded. */
 const GENERATED_METHODS: ReadonlySet<string> = new Set(['route', 'input', 'output', 'handler'])
 
 /** Packages whose imports the generator always owns. */
 const GENERATED_PACKAGES = ['@orpc/server', '@orpc/contract', 'zod', 'valibot', 'arktype']
+
+/**
+ * A parsed file. The tree is read for positions and names only; every piece of text that is
+ * kept or moved is sliced from `code`, so comments and formatting survive a merge.
+ */
+type Source = {
+  readonly code: string
+  readonly program: Program
+  readonly errors: readonly string[]
+}
+
+/** `export const name = …`, with the chain calls under it in walk order. */
+type Procedure = {
+  readonly name: string
+  readonly statement: ExportNamedDeclaration
+  readonly calls: readonly ChainCall[]
+}
+
+/**
+ * A call under a procedure. `method` is the name of a `.method(...)` call; `next` is the
+ * generated call a `.use(...)` precedes — `a.use(x).route(...)` → `route`.
+ */
+type ChainCall = {
+  readonly call: CallExpression
+  readonly method: string | undefined
+  readonly next: string
+}
 
 type Customization = {
   readonly handlerBody: string
@@ -15,131 +51,157 @@ type Customization = {
   readonly postHandler: string
 }
 
-function parse(code: string) {
-  return new Project({ useInMemoryFileSystem: true }).createSourceFile('file.ts', code)
+function parse(code: string): Source {
+  return { code, ...parseSource(code) }
 }
 
-function isMethodCall(call: CallExpression, name: string) {
-  const expr = call.getExpression()
-  return Node.isPropertyAccessExpression(expr) && expr.getName() === name
+/** The name of the method `node` calls, for a `.name(...)` call. */
+function methodOf(node: Node | undefined) {
+  return node?.type === 'CallExpression' &&
+    node.callee.type === 'MemberExpression' &&
+    !node.callee.computed &&
+    node.callee.property.type === 'Identifier'
+    ? node.callee.property.name
+    : undefined
 }
 
-function findHandlerCall(stmt: VariableStatement) {
-  return stmt
-    .getDeclarations()[0]
-    ?.getDescendantsOfKind(SyntaxKind.CallExpression)
-    .find((call) => isMethodCall(call, 'handler'))
+function memberName(node: Node | undefined) {
+  return node?.type === 'MemberExpression' && !node.computed && node.property.type === 'Identifier'
+    ? node.property.name
+    : undefined
 }
 
-function getHandlerBodyNode(call: CallExpression | undefined) {
-  const arg = call?.getArguments()[0]
-  if (Node.isArrowFunction(arg)) {
-    const body = arg.getBody()
-    return Node.isBlock(body) ? body : undefined
+/**
+ * The generated call a `.use(...)` precedes: the call made on its result, or, for one
+ * `.use()` after another, the call made on that one's.
+ */
+function nextGeneratedMethod(ancestors: readonly Node[]) {
+  const parent = memberName(ancestors.at(-1))
+  if (ancestors.at(-2)?.type !== 'CallExpression' || parent === undefined) return 'route'
+  if (GENERATED_METHODS.has(parent)) return parent
+  const outer = memberName(ancestors.at(-3))
+  return outer !== undefined && GENERATED_METHODS.has(outer) ? outer : 'route'
+}
+
+function chainCalls(node: Node): readonly ChainCall[] {
+  const calls: ChainCall[] = []
+  walk(node, (candidate, ancestors) => {
+    if (candidate.type !== 'CallExpression') return
+    const method = methodOf(candidate)
+    calls.push({
+      call: candidate,
+      method,
+      next: method === 'use' ? nextGeneratedMethod(ancestors) : 'route',
+    })
+  })
+  return calls
+}
+
+function procedures(source: Source): readonly Procedure[] {
+  return source.program.body.flatMap((statement) => {
+    if (
+      statement.type !== 'ExportNamedDeclaration' ||
+      statement.declaration?.type !== 'VariableDeclaration'
+    ) {
+      return []
+    }
+    const declarator = statement.declaration.declarations[0]
+    if (declarator?.id.type !== 'Identifier') return []
+    return [{ name: declarator.id.name, statement, calls: chainCalls(declarator) }]
+  })
+}
+
+function findCall(procedure: Procedure, method: string) {
+  return procedure.calls.find((entry) => entry.method === method)?.call
+}
+
+function handlerBodyOf(
+  call: CallExpression | undefined,
+): BlockStatement | FunctionBody | undefined {
+  const arg = call?.arguments[0]
+  if (arg?.type === 'ArrowFunctionExpression') {
+    return arg.body.type === 'BlockStatement' ? arg.body : undefined
   }
-  return Node.isFunctionExpression(arg) ? arg.getBody() : undefined
+  return arg?.type === 'FunctionExpression' ? (arg.body ?? undefined) : undefined
 }
 
 function isStubBody(body: string) {
   return body.replaceAll(/\s/gu, '') === '{}'
 }
 
-/** The generated call a `.use(...)` precedes: `a.use(x).route(...)` → `route`. */
-function findNextGeneratedMethod(useCall: Node) {
-  const parent = useCall.getParent()
-  const grandParent = parent?.getParent()
-  if (!Node.isPropertyAccessExpression(parent) || !Node.isCallExpression(grandParent)) {
-    return 'route'
-  }
-  const gpExpr = grandParent.getExpression()
-  if (Node.isPropertyAccessExpression(gpExpr) && GENERATED_METHODS.has(gpExpr.getName())) {
-    return gpExpr.getName()
-  }
-  const outerParent = grandParent.getParent()
-  if (
-    Node.isPropertyAccessExpression(outerParent) &&
-    GENERATED_METHODS.has(outerParent.getName())
-  ) {
-    return outerParent.getName()
-  }
-  return 'route'
-}
-
-function extractCustomization(stmt: VariableStatement): Customization {
-  const calls = stmt.getDeclarations()[0]?.getDescendantsOfKind(SyntaxKind.CallExpression) ?? []
-  const handlerCall = findHandlerCall(stmt)
-  const useNodes = calls
-    .filter((call) => isMethodCall(call, 'use'))
-    .map((call) => ({
-      text: `.use(${call
-        .getArguments()
-        .map((arg) => arg.getText())
-        .join(', ')})`,
-      beforeMethod: findNextGeneratedMethod(call),
+function extractCustomization(source: Source, procedure: Procedure): Customization {
+  const { code } = source
+  const handlerCall = findCall(procedure, 'handler')
+  const useNodes = procedure.calls
+    .filter((entry) => entry.method === 'use')
+    .map((entry) => ({
+      text: `.use(${entry.call.arguments.map((arg) => textOf(code, arg)).join(', ')})`,
+      beforeMethod: entry.next,
     }))
   const postHandler = handlerCall
-    ? stmt
-        .getText()
-        .slice(handlerCall.getEnd() - stmt.getStart())
-        .trimEnd()
+    ? code.slice(handlerCall.end, procedure.statement.end).trimEnd()
     : ''
+  const body = handlerBodyOf(handlerCall)
   return {
-    handlerBody: getHandlerBodyNode(handlerCall)?.getText() ?? '{}',
+    handlerBody: body ? textOf(code, body) : '{}',
     useNodes,
     postHandler,
   }
 }
 
-function exportedStatements(file: SourceFile) {
-  return file.getVariableStatements().flatMap((stmt) => {
-    const name = stmt.getDeclarations()[0]?.getName()
-    return stmt.isExported() && name !== undefined ? [[name, stmt] as const] : []
-  })
+function hasUserCode(custom: Customization) {
+  return !isStubBody(custom.handlerBody) || custom.useNodes.length > 0 || custom.postHandler !== ''
 }
 
 /** Re-applies the user's `.use()` calls, handler body and post-handler calls to a generated statement. */
-function mergeChain(generated: string, custom: Customization) {
-  const stmt = parse(generated).getVariableStatements()[0]
-  const decl = stmt?.getDeclarations()[0]
-  if (!decl) return generated
-  const calls = decl.getDescendantsOfKind(SyntaxKind.CallExpression)
+function mergeChain(source: Source, procedure: Procedure, custom: Customization) {
+  const { start } = procedure.statement
   const useInsertions = custom.useNodes.flatMap((useNode) => {
-    const expr = calls.find((call) => isMethodCall(call, useNode.beforeMethod))?.getExpression()
-    if (!Node.isPropertyAccessExpression(expr)) return []
-    const pos = expr.getNameNode().getStart() - 1
+    const callee = findCall(procedure, useNode.beforeMethod)?.callee
+    if (callee?.type !== 'MemberExpression' || callee.computed) return []
+    const pos = callee.property.start - 1 - start
     return [{ start: pos, end: pos, insert: useNode.text }]
   })
   const body = isStubBody(custom.handlerBody)
     ? undefined
-    : getHandlerBodyNode(calls.find((call) => isMethodCall(call, 'handler')))
+    : handlerBodyOf(findCall(procedure, 'handler'))
   const replacements = [
     ...useInsertions,
-    ...(body ? [{ start: body.getStart(), end: body.getEnd(), insert: custom.handlerBody }] : []),
+    ...(body
+      ? [{ start: body.start - start, end: body.end - start, insert: custom.handlerBody }]
+      : []),
   ].toSorted((a, b) => b.start - a.start)
   const merged = replacements.reduce(
     (text, rep) => `${text.slice(0, rep.start)}${rep.insert}${text.slice(rep.end)}`,
-    generated,
+    textOf(source.code, procedure.statement),
   )
   return `${merged}${custom.postHandler}`
 }
 
-function importText(decl: ImportDeclaration) {
-  const text = decl.getText()
+function importsOf(source: Source) {
+  return source.program.body.filter(
+    (statement): statement is ImportDeclaration => statement.type === 'ImportDeclaration',
+  )
+}
+
+function importText(code: string, decl: ImportDeclaration) {
+  const text = textOf(code, decl)
   return text.endsWith(';') ? text.slice(0, -1) : text
 }
 
 /** The generated imports, then every existing import the generator does not own. */
-function mergeImports(existing: SourceFile, generated: SourceFile, managed: ReadonlySet<string>) {
-  const generatedImports = generated.getImportDeclarations()
-  const generatedSpecifiers = new Set(generatedImports.map((d) => d.getModuleSpecifierValue()))
+function mergeImports(existing: Source, generated: Source, managed: ReadonlySet<string>) {
+  const generatedImports = importsOf(generated)
+  const generatedSpecifiers = new Set(generatedImports.map((d) => d.source.value))
   const isOwned = (specifier: string) =>
     managed.has(specifier) ||
     generatedSpecifiers.has(specifier) ||
     GENERATED_PACKAGES.some((pkg) => specifier === pkg || specifier.startsWith(`${pkg}/`))
-  const userImports = existing
-    .getImportDeclarations()
-    .filter((decl) => !isOwned(decl.getModuleSpecifierValue()))
-  return [...generatedImports, ...userImports].map(importText).join('\n')
+  const userImports = importsOf(existing).filter((decl) => !isOwned(decl.source.value))
+  return [
+    ...generatedImports.map((decl) => importText(generated.code, decl)),
+    ...userImports.map((decl) => importText(existing.code, decl)),
+  ].join('\n')
 }
 
 /**
@@ -147,6 +209,10 @@ function mergeImports(existing: SourceFile, generated: SourceFile, managed: Read
  * `.use()` middleware in its position, calls after `.handler(...)`, and imports from
  * modules the generator does not own (`managed` lists the project modules it does).
  * Procedures the spec no longer has are dropped; new ones arrive as stubs.
+ *
+ * An existing file that does not parse has an empty tree, in which every procedure looks
+ * missing: merging would write the stubs over the edit that broke it. It is returned as it
+ * is instead, and the merge is taken up on the first run after it parses again.
  */
 export function mergeProcedureFile(
   existing: string,
@@ -154,29 +220,36 @@ export function mergeProcedureFile(
   managed: ReadonlySet<string> = new Set(),
 ) {
   const existingFile = parse(existing)
-  const generatedFile = parse(generated)
+  if (existingFile.errors.length > 0) return existing
   const customizations = new Map(
-    exportedStatements(existingFile).map(([name, stmt]) => [name, extractCustomization(stmt)]),
+    procedures(existingFile).map((procedure) => [
+      procedure.name,
+      extractCustomization(existingFile, procedure),
+    ]),
   )
   if (customizations.size === 0) return generated
-  const sections = exportedStatements(generatedFile).flatMap(([name, stmt]) => {
-    if (!findHandlerCall(stmt)) return []
-    const text = stmt.getText()
-    const custom = customizations.get(name)
-    const hasUserCode =
-      custom !== undefined &&
-      (!isStubBody(custom.handlerBody) || custom.useNodes.length > 0 || custom.postHandler !== '')
-    return [custom && hasUserCode ? mergeChain(text, custom) : text]
+  const generatedFile = parse(generated)
+  const sections = procedures(generatedFile).flatMap((procedure) => {
+    if (!findCall(procedure, 'handler')) return []
+    const custom = customizations.get(procedure.name)
+    return [
+      custom && hasUserCode(custom)
+        ? mergeChain(generatedFile, procedure, custom)
+        : textOf(generated, procedure.statement),
+    ]
   })
   // Statements that are not exported procedures (`const os=implement(contract)`) are the
   // generator's own and come back as generated.
-  const preamble = generatedFile
-    .getStatements()
+  const preamble = generatedFile.program.body
     .filter(
-      (stmt) =>
-        !Node.isImportDeclaration(stmt) && !(Node.isVariableStatement(stmt) && stmt.isExported()),
+      (statement) =>
+        statement.type !== 'ImportDeclaration' &&
+        !(
+          statement.type === 'ExportNamedDeclaration' &&
+          statement.declaration?.type === 'VariableDeclaration'
+        ),
     )
-    .map((stmt) => stmt.getText())
+    .map((statement) => textOf(generated, statement))
   const imports = mergeImports(existingFile, generatedFile, managed)
   return `${[imports, ...preamble, ...sections].filter((part) => part !== '').join('\n\n')}\n`
 }

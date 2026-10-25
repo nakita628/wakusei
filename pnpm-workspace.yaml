@@ -7,7 +7,7 @@ packages:
 # `@typespec/*` belongs here, so move anything else back to its package.json.
 catalogMode: strict
 catalog:
-  '@typespec/http': ^1.16.0
+  '@typespec/http': ^1.17.0
 allowBuilds:
   esbuild: false
   # Optional native accelerator pulled in through oas-truth -> schema-truth -> effect ->
