@@ -9,6 +9,7 @@ checksummed
 codegen
 GOARCH
 hekireki
+Jsonified
 Metavar
 msgpackr
 msvc
