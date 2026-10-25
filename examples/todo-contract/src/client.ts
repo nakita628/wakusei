@@ -4,11 +4,8 @@ import { OpenAPILink } from '@orpc/openapi-client/fetch'
 
 import { contract } from './contract'
 
-const client: ContractRouterClient<typeof contract> = createORPCClient(
-  new OpenAPILink(contract, { url: 'http://localhost:3000' }),
-)
+export type Client = ContractRouterClient<typeof contract>
 
-const todo = await client.postTodos({ title: 'Buy milk' })
-await client.patchTodosId({ id: todo.id, done: true })
-console.log(await client.getTodos())
-await client.deleteTodosId({ id: todo.id })
+export const client: Client = createORPCClient(
+  new OpenAPILink(contract, { url: process.env.API_URL! }),
+)

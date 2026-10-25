@@ -55,6 +55,30 @@ describe('parseConfig', () => {
     expect(await parse(config)).toStrictEqual({ ...config, ...defaults })
   })
 
+  it('fills in the base URL of a client', async () => {
+    const config = { ...base, mode: 'contract', client: {} }
+    expect(await parse(config)).toStrictEqual({ ...config, ...defaults, client: { baseUrl: '/' } })
+  })
+
+  it('fills in where a client reads its variable and the name of an environment object', async () => {
+    const env = { ...base, mode: 'contract', client: { baseUrl: { env: 'VITE_API_URL' } } }
+    expect(await parse(env)).toStrictEqual({
+      ...env,
+      ...defaults,
+      client: { baseUrl: { env: 'VITE_API_URL', source: 'import.meta.env' } },
+    })
+    const imported = {
+      ...base,
+      mode: 'contract',
+      client: { baseUrl: { env: 'API_URL', import: '@/env' }, credentials: 'include' },
+    }
+    expect(await parse(imported)).toStrictEqual({
+      ...imported,
+      ...defaults,
+      client: { baseUrl: { env: 'API_URL', import: '@/env', name: 'env' }, credentials: 'include' },
+    })
+  })
+
   it.each(['openapi.yaml', 'openapi.json', 'main.tsp'])('accepts %s as input', async (input) => {
     expect(await parse({ ...base, input })).toStrictEqual({ ...base, input, ...defaults })
   })
@@ -212,6 +236,41 @@ describe('parseConfig', () => {
       'schema: Expected "zod" | "valibot" | "arktype"',
     ],
     ['template in server mode', { ...base, template: {} }, 'template: Expected no excess property'],
+    ['client in server mode', { ...base, client: {} }, 'client: Expected no excess property'],
+    [
+      'a client written to a directory',
+      { ...base, mode: 'contract', client: { output: 'src/client' } },
+      'client.output: must be .ts file',
+    ],
+    [
+      'a fixed client base URL',
+      { ...base, mode: 'contract', client: { baseUrl: 'http://localhost:3000' } },
+      "client.baseUrl: a fixed URL is not taken: leave baseUrl out (or set '/') for the same origin, or read it from the environment with { env } or { env, import }",
+    ],
+    [
+      'a client base URL variable that is not a name',
+      { ...base, mode: 'contract', client: { baseUrl: { env: 'API-URL' } } },
+      'client.baseUrl.env: must be the name of an environment variable',
+    ],
+    [
+      'an environment object named like a binding of the client file',
+      {
+        ...base,
+        mode: 'contract',
+        client: { baseUrl: { env: 'API_URL', import: '@/env', name: 'contract' } },
+      },
+      'client.baseUrl.name: must not be a name the client file binds itself (client, Client, contract, createORPCClient, ContractRouterClient, OpenAPILink)',
+    ],
+    [
+      'an unknown client credentials mode',
+      { ...base, mode: 'contract', client: { credentials: 'always' } },
+      'client.credentials: Expected "include" | "same-origin" | "omit"',
+    ],
+    [
+      'a quote in client.import',
+      { ...base, mode: 'contract', client: { import: "@x'" } },
+      'client.import: must be a module specifier, with no whitespace or quotes',
+    ],
     [
       'split: true with a .ts file',
       { ...base, components: { responses: { output: 'src/x.ts', split: true } } },

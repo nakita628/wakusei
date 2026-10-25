@@ -5,5 +5,6 @@ export default defineConfig({
   mode: 'contract',
   output: '.',
   template: {},
+  client: { baseUrl: { env: 'API_URL', source: 'process.env' } },
   format: { printWidth: 100, singleQuote: true, semi: false, experimentalSortImports: {} },
 })

@@ -5,7 +5,7 @@
   "scripts": {
     "generate": "wakusei",
     "dev": "tsx watch src/index.ts",
-    "client": "tsx src/client.ts",
+    "client": "API_URL=http://localhost:3000 tsx src/demo.ts",
     "typecheck": "tsc -p ."
   },
   "dependencies": {

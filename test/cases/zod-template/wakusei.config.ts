@@ -6,4 +6,5 @@ export default defineConfig({
   output: '../../__generated__/zod-template',
   schema: 'zod',
   template: {},
+  client: { baseUrl: { env: 'API_URL', source: 'process.env' } },
 })

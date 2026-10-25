@@ -21,7 +21,7 @@ function ancestors(dir: string): readonly string[] {
  * The directory of the nearest `package.json` at or above `dir`, or `undefined` when there
  * is none. `dir` need not exist yet: a directory that is not there holds no `package.json`.
  */
-function packageRootOf(dir: string) {
+export function packageRootOf(dir: string) {
   return Effect.gen(function* () {
     const candidates = ancestors(dir)
     const found = yield* Effect.forEach(

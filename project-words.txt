@@ -25,6 +25,7 @@ takibi
 textlint
 textlintrc
 typebox
+unstub
 voidzero
 wakusei
 zizmor

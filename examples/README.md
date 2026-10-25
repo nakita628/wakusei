@@ -2,10 +2,10 @@
 
 The same todo API from one `openapi.yaml`, in each generation mode.
 
-| Example         | Mode                  | You write                                                      |
-| --------------- | --------------------- | -------------------------------------------------------------- |
-| `todo-server`   | `server`              | The handler bodies in `src/handlers`, the store, the server    |
-| `todo-contract` | `contract` + template | The same, plus `src/client.ts`, a client typed by the contract |
+| Example         | Mode                           | You write                                                               |
+| --------------- | ------------------------------ | ----------------------------------------------------------------------- |
+| `todo-server`   | `server`                       | The handler bodies in `src/handlers`, the store, the server             |
+| `todo-contract` | `contract` + template + client | The same; `src/client.ts`, a client typed by the contract, is generated |
 
 ```bash
 vp run wakusei#build   # once, at the repository root
@@ -21,6 +21,6 @@ curl localhost:3000/todos
 curl -X DELETE localhost:3000/todos/<id>
 ```
 
-In `todo-contract`, run `pnpm client` while `pnpm dev` is up.
+In `todo-contract`, run `pnpm client` while `pnpm dev` is up: `src/demo.ts` calls the API through the generated client.
 
 Anything the handlers share goes in its own module (`src/db.ts`): the generator owns the `@orpc/*` and `zod` imports and every top-level statement in `src/handlers` other than the exported procedures.
