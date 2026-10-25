@@ -1,0 +1,29 @@
+{
+  "name": "@wakusei/example-todo-contract",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "generate": "wakusei",
+    "dev": "tsx watch src/server.ts",
+    "start": "tsx src/server.ts",
+    "client": "tsx src/demo.ts",
+    "test": "vp test run",
+    "check": "vp check",
+    "typecheck": "tsc -p ."
+  },
+  "dependencies": {
+    "@orpc/client": "^1.16.1",
+    "@orpc/contract": "^1.16.1",
+    "@orpc/openapi": "^1.16.1",
+    "@orpc/openapi-client": "^1.16.1",
+    "@orpc/server": "^1.16.1",
+    "@orpc/valibot": "^1.16.1",
+    "valibot": "^1.5.0"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.5",
+    "tsx": "^4.23.15",
+    "typescript": "7.0.2",
+    "wakusei": "workspace:^"
+  }
+}

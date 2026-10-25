@@ -1,6 +1,7 @@
 packages:
   - packages/*
   - test
+  - examples/*
 # The e2e TypeSpec document imports @typespec/http. Everything else TypeSpec
 # (compiler, openapi3, …) is oas-truth's peer, not a wakusei dependency.
 # Strict mode makes `pnpm add` refuse a version outside the catalog; only

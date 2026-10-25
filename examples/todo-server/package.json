@@ -1,0 +1,25 @@
+{
+  "name": "@wakusei/example-todo-server",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "generate": "wakusei",
+    "dev": "tsx watch src/index.ts",
+    "start": "tsx src/index.ts",
+    "test": "vp test run",
+    "check": "vp check",
+    "typecheck": "tsc -p ."
+  },
+  "dependencies": {
+    "@orpc/openapi": "^1.16.1",
+    "@orpc/server": "^1.16.1",
+    "@orpc/zod": "^1.16.1",
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.5",
+    "tsx": "^4.23.15",
+    "typescript": "7.0.2",
+    "wakusei": "workspace:^"
+  }
+}

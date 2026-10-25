@@ -41,4 +41,12 @@ jobs:
 
       - run: vp run --filter ./test test
 
+      # The examples commit their generated code: regenerating must leave it unchanged.
+      - run: vp run --filter './examples/*' generate
+      - run: git diff --exit-code -- examples
+
+      - run: vp run --filter './examples/*' typecheck
+
+      - run: vp run --filter './examples/*' test
+
       - run: vp run check
