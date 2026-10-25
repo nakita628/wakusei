@@ -1,5 +1,5 @@
 import type { Parameter, Schema } from 'oas-truth'
-import { makeAdapter, makeSchemaVarName, schemaRefToName } from 'oas-truth'
+import { isParamStyle, makeAdapter, makeSchemaVarName, schemaRefToName } from 'oas-truth'
 
 import type { SchemaLib } from '../helper/library.js'
 import { getLibrary } from '../helper/library.js'
@@ -51,6 +51,19 @@ function makeParameterSchema(parameter: Parameter): Schema {
   return parameter.schema ?? getJsonSchema(parameter.content) ?? {}
 }
 
+/**
+ * The parameter's own `style`, `explode` and `allowEmptyValue`, which decide how its text is
+ * split; a `style` schema-truth does not read is left out, as oas-truth's builder does.
+ */
+function makeParameterOptions(parameter: Parameter) {
+  return {
+    ...(parameter.style !== undefined &&
+      isParamStyle(parameter.style) && { style: parameter.style }),
+    ...(parameter.explode !== undefined && { explode: parameter.explode }),
+    ...(parameter.allowEmptyValue !== undefined && { allowEmptyValue: parameter.allowEmptyValue }),
+  }
+}
+
 /** Later fields whose key already appeared are dropped: a parameter wins over a body property. */
 function dedupeFields(fields: readonly { readonly key: string; readonly code: string }[]) {
   return fields
@@ -59,8 +72,8 @@ function dedupeFields(fields: readonly { readonly key: string; readonly code: st
 }
 
 /**
- * The procedure's input: path and query parameters (coerced from the wire by
- * schema-to-library) and the JSON body. A body alone is the input as it is; next to
+ * The procedure's input: path and query parameters (coerced from the wire, and split by
+ * their `style`, by schema-truth) and the JSON body. A body alone is the input as it is; next to
  * parameters, its properties join theirs in one object.
  */
 function makeInput(operation: OperationInfo, context: ProcedureContext) {
@@ -74,7 +87,11 @@ function makeInput(operation: OperationInfo, context: ProcedureContext) {
         key: parameter.name,
         code: library.field(
           parameter.name,
-          adapter.toExpression(makeParameterSchema(parameter), location),
+          adapter.toExpression(
+            makeParameterSchema(parameter),
+            location,
+            makeParameterOptions(parameter),
+          ),
           location === 'path' || parameter.required === true,
         ),
       })),

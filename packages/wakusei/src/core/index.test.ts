@@ -241,7 +241,7 @@ export const getPosts = os
           v.string(),
           v.transform(Number),
           v.number(),
-          v.integer(),
+          v.safeInteger(),
           v.minValue(1),
           v.maxValue(100),
         ),
@@ -261,7 +261,7 @@ export const getPostsPostId = os
   .route({ method: 'GET', path: '/posts/{postId}' })
   .input(
     v.object({
-      postId: v.pipe(v.string(), v.transform(Number), v.number(), v.integer(), v.minValue(1)),
+      postId: v.pipe(v.string(), v.transform(Number), v.number(), v.safeInteger(), v.minValue(1)),
     }),
   )
   .output(PostSchema)
@@ -271,7 +271,7 @@ export const deletePostsPostId = os
   .route({ method: 'DELETE', path: '/posts/{postId}', successStatus: 204 })
   .input(
     v.object({
-      postId: v.pipe(v.string(), v.transform(Number), v.number(), v.integer(), v.minValue(1)),
+      postId: v.pipe(v.string(), v.transform(Number), v.number(), v.safeInteger(), v.minValue(1)),
     }),
   )
   .handler(async ({ input }) => {})
@@ -288,9 +288,12 @@ export const getPosts = os
   .route({ method: 'GET', path: '/posts' })
   .input(
     type({
-      'limit?': type('string.integer.parse').to(
-        type('number.integer >= 1').and(type('number.integer <= 100')),
-      ),
+      'limit?': type('string')
+        .pipe((data, ctx) => {
+          const value = Number(data)
+          return Number.isSafeInteger(value) ? value : ctx.error('an integer')
+        })
+        .to('number.integer >= 1 & number.integer <= 100'),
     }),
   )
   .output(type(PostSchema).array())
@@ -304,13 +307,31 @@ export const postPosts = os
 
 export const getPostsPostId = os
   .route({ method: 'GET', path: '/posts/{postId}' })
-  .input(type({ postId: type('string.integer.parse').to('number.integer >= 1') }))
+  .input(
+    type({
+      postId: type('string')
+        .pipe((data, ctx) => {
+          const value = Number(data)
+          return Number.isSafeInteger(value) ? value : ctx.error('an integer')
+        })
+        .to('number.integer >= 1'),
+    }),
+  )
   .output(PostSchema)
   .handler(async ({ input }) => {})
 
 export const deletePostsPostId = os
   .route({ method: 'DELETE', path: '/posts/{postId}', successStatus: 204 })
-  .input(type({ postId: type('string.integer.parse').to('number.integer >= 1') }))
+  .input(
+    type({
+      postId: type('string')
+        .pipe((data, ctx) => {
+          const value = Number(data)
+          return Number.isSafeInteger(value) ? value : ctx.error('an integer')
+        })
+        .to('number.integer >= 1'),
+    }),
+  )
   .handler(async ({ input }) => {})
 `)
   })

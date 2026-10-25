@@ -43,7 +43,7 @@ and to the code second.
 | `helper/` | `library.ts` (the per-lib table: object / field builders for the combined input, import candidates), `identifiers.ts` (free identifiers of generated code), `imports.ts` (import lines for what the code references), `operations.ts` (paths / webhooks → `OperationInfo`) | file I/O |
 | `generator/` | pure code builders: `schemas.ts` (oas-truth's `makeSchemaDeclarations` with wakusei's type naming), `components.ts` (oas-truth's `make*Declarations`), `procedures.ts` (route / input / output chains, server procedures, the contract, `implement` stubs) | touch the filesystem, run an Effect |
 | `core/` | orchestration: `index.ts` (`orpc()`), `layout.ts` (config → paths and import specifiers), `components.ts`, `procedures.ts` | assemble code strings (`make*Code` lives in `generator`) |
-| `cli/` | the `wakusei` command on `effect/unstable/cli`; `watch.ts` is the config pass and the `--watch` loop | generator logic |
+| `cli/` | the `wakusei` command on `effect/cli`; `watch.ts` is the config pass and the `--watch` loop | generator logic |
 | `vite-plugin/` | `wakuseiVite()`: reload the config, regenerate on change, clean split component directories and stale outputs | generator logic |
 | `testing/` | `runGenerator` / `runGeneratorError` | ship in `dist` |
 
@@ -102,8 +102,8 @@ is the generator's and is rewritten wholesale.
 
 - OpenAPI types (`OpenAPI`, `Schema`, `Components`, …) and `parseOpenAPI` are imported straight
   from `oas-truth`; there is no re-export module.
-- **No direct dependency on schema-to-library.** Every validator expression comes from oas-truth's
-  adapter (`makeAdapter(lib).toExpression`), so schema-to-library's version is decided by
+- **No direct dependency on schema-truth.** Every validator expression comes from oas-truth's
+  adapter (`makeAdapter(lib).toExpression`), so schema-truth's version is decided by
   oas-truth and the output cannot drift. An inline expression already references declared
   schemas by name, without a lazy wrapper.
 - **`components.schemas` belongs to oas-truth.** `makeSchemaDeclarations` returns the
@@ -116,11 +116,13 @@ is the generator's and is rewritten wholesale.
 - A `$ref` wakusei writes itself (a `.input()` / `.output()` schema, a body property) resolves
   through `makeSchemaVarName(ref, makeSchemaIdentifiers(schemas))`, the same collision map the
   declarations use.
-- Query and path parameters are coerced by schema-to-library's `paramIn`
-  (`adapter.toExpression(schema, paramIn)`): zod `z.coerce`, valibot `v.transform(Number)`,
-  arktype `.parse`.
+- Query and path parameters are coerced by schema-truth's `paramIn`
+  (`adapter.toExpression(schema, paramIn, options)`): zod `z.coerce`, valibot
+  `v.transform(Number)`, arktype `.pipe`. The parameter's `style`, `explode` and
+  `allowEmptyValue` go in `options` (a `style` that fails `isParamStyle` is left out), so
+  `form` with `explode: false` reads `1,2,3`.
 - **Never patch oas-truth's output with string edits.** Fix the mistake in oas-truth or
-  schema-to-library.
+  schema-truth.
 
 ## Vendor extensions (`x-*`)
 
@@ -128,21 +130,21 @@ Three layers:
 
 - **A — messages**: supported, always on; emitted as validator error messages. `x-error-message`,
   `x-pattern-message`, `x-minimum-message`, `x-required-message` and the rest of the family.
-- **B — transforms**: supported, always on; declarative keys schema-to-library emits per lib.
+- **B — transforms**: supported, always on; declarative keys schema-truth emits per lib.
   `x-trim`, `x-coerce`, `x-readonly`, `x-stringbool`, `x-brand`, `x-normalize` and the like.
 - **C — code injection**: **unsupported, permanently.** The ten keys are `x-refine`,
   `x-superRefine`, `x-preprocess`, `x-codec`, `x-transform`, `x-pipe`, `x-check`, `x-filter`,
-  `x-narrow` and `x-morph`. schema-to-library's `unsafeCodeExtensions` is never passed, by wakusei
+  `x-narrow` and `x-morph`. schema-truth's `unsafeCodeExtensions` is never passed, by wakusei
   or by oas-truth's adapter.
 
 Why C stays sealed: it pastes spec strings into generated code verbatim, which is remote code
-execution wherever a spec crosses a trust boundary (a SaaS, a playground); schema-to-library's
+execution wherever a spec crosses a trust boundary (a SaaS, a playground); schema-truth's
 denylist can be bypassed through built-in prototypes; an opt-in is one config line away from being
 enabled by mistake; and one RCE after opening it would be irreversible. A proposal to expose it is
 declined.
 
 **Transparency contract:** wakusei and oas-truth's adapter pass **every** `x-*` key through to
-schema-to-library unfiltered. C-layer keys disappear only because schema-to-library defaults
+schema-truth unfiltered. C-layer keys disappear only because schema-truth defaults
 `unsafeCodeExtensions` to `false` — never because wakusei strips them.
 
 ## Public API

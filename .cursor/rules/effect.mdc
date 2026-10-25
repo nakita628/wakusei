@@ -6,8 +6,8 @@ alwaysApply: false
 
 # Effect
 
-The package is written on Effect v4 (`4.0.0-rc.112`, pinned exactly to the release candidate
-`oas-truth`'s schema-to-library uses).
+The package is written on Effect v4 (`4.0.5`, pinned exactly to the release `oas-truth`'s
+schema-truth uses).
 
 ## One shape for an Effect program
 
@@ -85,9 +85,11 @@ export function readFile(path: string) {
 
 ## The CLI
 
-- `effect/unstable/cli`: an optional `<input>` argument, `--output` / `-o`, `--schema`,
-  `--config` / `-c` and `--watch` / `-w`. `--help`, `--version` (read from `package.json`) and
-  `--completions` are the library's.
+- `effect/cli`: an optional `<input>` argument, `--output` / `-o`, `--schema`,
+  `--config` / `-c` and `--watch` / `-w`. `--help`, `--version` (`package.json`'s, imported as
+  JSON) and `--completions` are the library's.
+- `wakusei()` is `Command.run`: the arguments come from the `Stdio` service, which
+  `NodeServices.layer` fills from the process. No module reads `process.argv` itself.
 - Two modes. `<input>` is the one-shot: no config file is read, `-o` switches server mode into
   contract mode, and the flags are turned into a config through `parseConfig`, so both modes
   validate the same way. Without `<input>`, a config file runs.

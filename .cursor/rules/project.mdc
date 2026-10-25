@@ -112,11 +112,11 @@ which part.
   not on a config change. See the architecture rule.
 - **Never hand-edit generated files:** `pnpm-lock.yaml` (let `pnpm install` write it), `dist/`,
   `coverage/`.
-- **`effect` and `@effect/platform-node` are pinned exactly** to the release candidate
-  `oas-truth`'s schema-to-library uses, and `@effect/platform-node-shared` is overridden to the
+- **`effect` and `@effect/platform-node` are pinned exactly** to the release `oas-truth`'s
+  schema-truth uses, and `@effect/platform-node-shared` is overridden to the
   same one in `pnpm-workspace.yaml`. They move together, in one change.
 - **The C-layer `x-*` extensions (code injection) stay unsupported.** `unsafeCodeExtensions` is
-  never passed to schema-to-library. See the architecture rule before touching vendor extensions.
+  never passed to schema-truth. See the architecture rule before touching vendor extensions.
 - **Never bump `version` in `packages/wakusei/package.json` or drop its `"private": true`** unless
   a release was asked for: pushing a new version to `main` is what publishes it. Never
   `npm publish`, `pnpm publish` or push a `v*` tag by hand, and never rename `release.yml` or its

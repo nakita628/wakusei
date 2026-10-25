@@ -52,8 +52,8 @@ type-aware lint sees the default lib there: sort a fresh array with `.sort()`, n
   awaited with `eventually` (`vi.waitFor` with a 20s timeout — its 1s default is too short for a
   real generation under a parallel run) on its observable result, never a fixed sleep in the test,
   and must finish before the test ends or its writes and log lines land in the next test.
-- The CLI suite runs `wakusei(argv, entryUrl)` with a recording `Console`, so it asserts exactly
-  what a user sees on stdout and stderr. `cli/watch.test.ts` forks the command with `--watch`,
+- The CLI suite runs `wakusei()` with its argv from `Stdio.layerTest({ args })` and a recording
+  `Console`, so it asserts exactly what a user sees on stdout and stderr. `cli/watch.test.ts` forks the command with `--watch`,
   edits real files and interrupts the fiber the way Ctrl-C does. An edit can land before the OS
   watcher is registered, so `writeUntil` repeats it until the output shows the pass; the budgets
   are starvation allowances, not expectations.

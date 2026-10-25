@@ -42,7 +42,7 @@
       "automerge": false
     },
     {
-      "description": "Kept on the release candidate oas-truth's schema-to-library uses, with @effect/platform-node-shared overridden to it in pnpm-workspace.yaml; move them together by hand.",
+      "description": "Kept on the release oas-truth's schema-truth uses, with @effect/platform-node-shared overridden to it in pnpm-workspace.yaml; move them together by hand.",
       "matchPackageNames": ["effect", "@effect/**"],
       "groupName": "effect",
       "automerge": false

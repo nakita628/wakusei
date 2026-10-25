@@ -26,16 +26,16 @@ commit.
 1. Reproduce it as a failing test at the smallest document that shows it, asserting the exact
    generated source.
 2. Find the layer that owns the mistake — parsing and Components (oas-truth), a schema expression
-   (schema-to-library), a code builder (`generator/`), composition (`helper/`), the program
+   (schema-truth), a code builder (`generator/`), composition (`helper/`), the program
    (`core/`), the merge (`merge/`) — and fix it there, not downstream. A mistake in oas-truth or
-   schema-to-library is fixed upstream, never by string-patching its output here.
+   schema-truth is fixed upstream, never by string-patching its output here.
 3. Check whether the other two schema libraries, the other mode and single-file output have the
    same mistake.
 
 ## A request to support a vendor extension (`x-*`)
 
 1. Classify it with the architecture rule's three layers.
-2. A or B: it belongs in schema-to-library (and oas-truth's `Schema` type), not here — wakusei
+2. A or B: it belongs in schema-truth (and oas-truth's `Schema` type), not here — wakusei
    only passes it through.
 3. C (code injection): decline, citing the architecture rule. Do not add a flag, an option or an
    allowlist for it.
@@ -95,11 +95,12 @@ For a change to the generated code, the merge, the CLI or the Vite plugin:
 
 ## Bump effect
 
-1. Find the release candidate oas-truth's schema-to-library now uses; that is the target.
+1. Find the release oas-truth's schema-truth now uses; that is the target.
 2. Change `effect` and `@effect/platform-node` in `packages/wakusei/package.json` (both exact)
    and the `@effect/platform-node-shared` override in `pnpm-workspace.yaml` together, then
    `pnpm install`.
-3. `pnpm check`. The RC moves the Schema and CLI APIs, so expect errors in `config/` and `cli/`.
+3. `pnpm check`. A release can move the Schema and CLI APIs, so expect errors in `config/` and
+   `cli/`.
 4. `pnpm test`, and read every behavior difference rather than adjusting an assertion to match.
 5. Say in the commit body which upstream changes forced code changes.
 
@@ -118,7 +119,7 @@ For a change to the generated code, the merge, the CLI or the Vite plugin:
    `minimumReleaseAgeExclude` in `pnpm-workspace.yaml` (and drop entries that no longer need it).
 2. `pnpm install`, `pnpm test`. A changed expectation is a changed generated output: read it and
    decide whether it is right before updating the test.
-3. If oas-truth moved schema-to-library to a new Effect RC, do the effect bump in the same change.
+3. If oas-truth moved schema-truth to a new Effect release, do the effect bump in the same change.
 
 ## Release (only when asked)
 

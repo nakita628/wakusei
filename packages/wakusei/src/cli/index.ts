@@ -1,8 +1,7 @@
-import { fileURLToPath } from 'node:url'
+import { Console, Effect, Option, Schema } from 'effect'
+import { Argument, CliError, Command, Flag } from 'effect/cli'
 
-import { Console, Effect, FileSystem, Option, Runtime, Schema } from 'effect'
-import { Argument, CliError, CliOutput, Command, Flag } from 'effect/unstable/cli'
-
+import manifest from '../../package.json' with { type: 'json' }
 import { DEFAULT_CONFIG_FILE, parseConfig } from '../config/index.js'
 import { makeReport, reportConfigPass, runConfigPass, watchConfig } from './watch.js'
 
@@ -20,15 +19,15 @@ const DocumentPathSchema = Schema.String.pipe(
 
 /** What `wakusei` accepts; each value is decoded before {@link generate} sees it. */
 const commandLine = {
-  input: Argument.file('input', { mustExist: true }).pipe(
+  input: Argument.File('input', { mustExist: true }).pipe(
     Argument.withSchema(DocumentPathSchema),
     Argument.withDescription('OpenAPI (.yaml, .json) or TypeSpec (.tsp) document to generate from'),
     Argument.withMetavar('input.{yaml,json,tsp}'),
     Argument.optional,
   ),
-  // `Flag.string`, not `Flag.file`: the file primitive rewrites its value to an absolute
+  // `Flag.String`, not `Flag.File`: the file primitive rewrites its value to an absolute
   // path, and `--output` is echoed back in the report, which should read as typed.
-  output: Flag.string('output').pipe(
+  output: Flag.String('output').pipe(
     Flag.withAlias('o'),
     Flag.withDescription(
       'Contract mode: a .ts file for a single module, or a directory (without -o: server mode into .)',
@@ -36,20 +35,20 @@ const commandLine = {
     Flag.withMetavar('output'),
     Flag.optional,
   ),
-  schema: Flag.choice('schema', ['zod', 'valibot', 'arktype']).pipe(
+  schema: Flag.Literals('schema', ['zod', 'valibot', 'arktype']).pipe(
     Flag.withDescription('Validation library for <input> (default: zod)'),
     Flag.withMetavar('lib'),
     Flag.optional,
   ),
-  config: Flag.file('config', { mustExist: true }).pipe(
+  config: Flag.File('config', { mustExist: true }).pipe(
     Flag.withAlias('c'),
     Flag.withDescription(`Config file to run (default: ./${DEFAULT_CONFIG_FILE})`),
     Flag.withMetavar('file'),
     Flag.optional,
   ),
-  // `Flag.boolean` is still a required flag until it is given a default — without this,
+  // `Flag.Boolean` is still a required flag until it is given a default — without this,
   // every invocation is rejected for not passing `--watch`.
-  watch: Flag.boolean('watch').pipe(
+  watch: Flag.Boolean('watch').pipe(
     Flag.withAlias('w'),
     Flag.withDescription('Rerun the config on every change to its input documents or itself'),
     Flag.withDefault(false),
@@ -147,10 +146,10 @@ function generate(args: Command.Command.Config.Infer<typeof commandLine>) {
 
 /**
  * The `wakusei` command: parsing, validation, `--help`, `--version` and shell completions
- * are owned by `effect/unstable/cli`, {@link generate} is the rest.
+ * are owned by `effect/cli`, {@link generate} is the rest.
  */
 const cli = Command.make(COMMAND_NAME, commandLine, generate).pipe(
-  Command.withDescription('Generate oRPC code from an OpenAPI or TypeSpec document'),
+  Command.withDescription(manifest.description),
   Command.withExamples([
     {
       command: `${COMMAND_NAME} openapi.yaml`,
@@ -176,43 +175,10 @@ const cli = Command.make(COMMAND_NAME, commandLine, generate).pipe(
 )
 
 /**
- * The version could not be read: the manifest beside the entry is missing, is not JSON,
- * or carries no `version` — a broken install, not anything the caller typed. It is raised
- * before the command runs, so it is rendered here through the same formatter and marked as
- * reported, so `runMain` does not print it a second time.
+ * Runs `wakusei` against the arguments the `Stdio` service supplies — the process's own on
+ * Node, a fixed list under `Stdio.layerTest`. `--version` is the manifest's, bundled in at
+ * build time.
  */
-function reportBrokenInstall(cause: { readonly message: string }) {
-  return Effect.gen(function* () {
-    const error = new CliError.UserError({
-      cause,
-      userMessage: `Cannot read the version from package.json: ${cause.message}`,
-    })
-    error[Runtime.errorReported] = false
-    const formatter = yield* CliOutput.Formatter
-    yield* Console.error(formatter.formatError(error))
-    return yield* error
-  })
-}
-
-/**
- * Runs `wakusei` against an argument list.
- *
- * `entryUrl` is the `import.meta.url` of the executable; `--version` is read from the
- * `package.json` beside it. Only the entry can supply that: `src/index.ts` and the
- * `dist/cli.js` it is packed into both sit one directory below the manifest.
- */
-export function wakusei(argv: readonly string[], entryUrl: string) {
-  return Effect.gen(function* () {
-    const manifestPath = fileURLToPath(new URL('../package.json', entryUrl))
-    const fs = yield* FileSystem.FileSystem
-    const source = yield* fs.readFileString(manifestPath)
-    const manifest = yield* Effect.try({
-      try: (): unknown => JSON.parse(source),
-      catch: (cause) => new Error(`${manifestPath} is not valid JSON`, { cause }),
-    })
-    const { version } = yield* Schema.decodeUnknownEffect(
-      Schema.Struct({ version: Schema.String }),
-    )(manifest)
-    return yield* Command.runWith(cli, { version })(argv)
-  }).pipe(Effect.catchIf((error) => !CliError.isCliError(error), reportBrokenInstall))
+export function wakusei() {
+  return Command.run(cli, { version: manifest.version })
 }

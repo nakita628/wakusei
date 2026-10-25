@@ -123,6 +123,34 @@ describe('makeServerProcedures', () => {
       'export const postNewPet=os.route({method:"POST",path:"/newPet"}).input(PetSchema).handler(async({input})=>{})',
     ])
   })
+
+  it("splits a parameter's text by its style, explode and allowEmptyValue", () => {
+    const styled = makeOperations({
+      openapi: '3.1.0',
+      info: { title: 't', version: '1' },
+      paths: {
+        '/items': {
+          get: {
+            parameters: [
+              {
+                name: 'ids',
+                in: 'query',
+                style: 'form',
+                explode: false,
+                schema: { type: 'array', items: { type: 'integer' } },
+              },
+              { name: 'q', in: 'query', allowEmptyValue: true, schema: { type: 'string' } },
+              { name: 'tag', in: 'query', style: 'unknown', schema: { type: 'string' } },
+            ],
+            responses: { '200': { description: 'OK' } },
+          },
+        },
+      },
+    } as never)
+    expect(makeServerProcedures(styled, context)).toBe(
+      'export const getItems=os.route({method:"GET",path:"/items"}).input(z.object({ids:z.preprocess((val)=>{if(typeof val!==\'string\')return val;const text=val;return (text===\'\'?[]:text.split(","))},z.preprocess((val)=>(val===undefined||Array.isArray(val)?val:[val]),z.array(z.coerce.number().int()))).exactOptional(),q:z.preprocess((val)=>(val===\'\'?undefined:val),z.string()).exactOptional(),tag:z.string().exactOptional()})).handler(async({input})=>{})',
+    )
+  })
 })
 
 describe('makeContract', () => {
@@ -130,13 +158,13 @@ describe('makeContract', () => {
     expect(
       makeContract(operations.slice(1, 2), { ...context, lib: 'valibot', prefix: '/v1' }),
     ).toBe(
-      'export const contract={patchUsersId:oc.route({method:"PATCH",path:"/v1/users/{id}",tags:["users"],summary:"Patch",deprecated:true,successStatus:202,successDescription:"Accepted for processing"}).input(v.object({id:v.pipe(v.string(),v.transform(Number),v.number(),v.integer()),"dry-run":v.pipe(v.picklist([\'true\',\'false\']),v.transform((input)=>input===\'true\')),filter:v.optional(v.partial(v.object({q:v.string()}))),name:v.optional(TagSchema)})).output(PetSchema)}',
+      'export const contract={patchUsersId:oc.route({method:"PATCH",path:"/v1/users/{id}",tags:["users"],summary:"Patch",deprecated:true,successStatus:202,successDescription:"Accepted for processing"}).input(v.object({id:v.pipe(v.string(),v.transform(Number),v.number(),v.safeInteger()),"dry-run":v.pipe(v.string(),v.regex(/^(?:true|1|yes|on|y|enabled|false|0|no|off|n|disabled)$/i),v.transform((input)=>/^(?:true|1|yes|on|y|enabled)$/i.test(input))),filter:v.optional(v.partial(v.object({q:v.string()}))),name:v.optional(TagSchema)})).output(PetSchema)}',
     )
   })
 
   it('marks optional fields in the key for arktype', () => {
     expect(makeContract(operations.slice(1, 2), { ...context, lib: 'arktype' })).toBe(
-      'export const contract={patchUsersId:oc.route({method:"PATCH",path:"/users/{id}",tags:["users"],summary:"Patch",deprecated:true,successStatus:202,successDescription:"Accepted for processing"}).input(type({id:type("string.integer.parse"),"dry-run":type("\'true\' | \'false\'").pipe((data) => data === \'true\'),"filter?":type({"q?":"string"}),"name?":TagSchema})).output(PetSchema)}',
+      'export const contract={patchUsersId:oc.route({method:"PATCH",path:"/users/{id}",tags:["users"],summary:"Patch",deprecated:true,successStatus:202,successDescription:"Accepted for processing"}).input(type({id:type("string").pipe((data, ctx) => { const value = Number(data); return Number.isSafeInteger(value) ? value : ctx.error("an integer") }),"dry-run":type(/^(?:true|1|yes|on|y|enabled|false|0|no|off|n|disabled)$/i).pipe((data) => /^(?:true|1|yes|on|y|enabled)$/i.test(data)),"filter?":type({"q?":"string"}),"name?":TagSchema})).output(PetSchema)}',
     )
   })
 
