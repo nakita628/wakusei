@@ -1,4 +1,6 @@
 {
   "extends": "../../tsconfig.base.json",
+  // The client reads its base URL from process.env.
+  "compilerOptions": { "types": ["node"] },
   "include": ["../../__generated__/zod-template/**/*"]
 }

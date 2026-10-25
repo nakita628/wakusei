@@ -259,7 +259,143 @@ const ComponentsSchema = Schema.Struct({
     ],
   })
 
-/** Fields both modes share. `template` belongs to the contract variant alone. */
+const EnvironmentVariableSchema = Schema.String.check(
+  Schema.isPattern(/^[A-Za-z_][A-Za-z0-9_]*$/u, {
+    message: 'must be the name of an environment variable',
+  }),
+)
+
+/**
+ * The names the client file binds itself; the environment object a module of yours exports
+ * is imported under its own name, so it cannot be one of them.
+ */
+const CLIENT_OWN_NAMES = [
+  'client',
+  'Client',
+  'contract',
+  'createORPCClient',
+  'ContractRouterClient',
+  'OpenAPILink',
+]
+
+const ClientSchema = Schema.Struct({
+  output: Schema.optionalKey(
+    TypeScriptPathSchema.annotate({
+      title: 'Client output file',
+      description:
+        'Where the client is written, resolved against `output` (the working directory when `output` is a `.ts` file). Defaults to `src/client.ts`.',
+      examples: ['src/client.ts'],
+    }),
+  ),
+  baseUrl: Schema.Union([
+    // `/` is the default and the only URL written into the file: a fixed URL differs
+    // between environments, so it is read from the environment instead.
+    Schema.String.check(
+      Schema.isPattern(/^\/$/u, {
+        message:
+          "a fixed URL is not taken: leave baseUrl out (or set '/') for the same origin, or read it from the environment with { env } or { env, import }",
+      }),
+    ),
+    // One object for both environment forms, told apart by `import`: as two union members,
+    // a mistake in one (`source: 'window'`) would be reported as an excess key of the other.
+    Schema.Struct({
+      env: EnvironmentVariableSchema.annotate({
+        title: 'Environment variable',
+        description:
+          'The variable that holds the base URL, asserted present with `!` (`VITE_API_URL` for a Vite build, `API_URL` for Node.js), or with `import`, the property of the imported environment object (`API_URL` for `env.API_URL`).',
+        examples: ['VITE_API_URL', 'API_URL'],
+      }),
+      source: Schema.optionalKey(
+        Schema.Literals(['import.meta.env', 'process.env']).annotate({
+          title: 'Where the variable is read from',
+          description:
+            '`import.meta.env` (the default) for code a bundler such as Vite builds, `process.env` for code Node.js runs. Not with `import`.',
+          examples: ['import.meta.env', 'process.env'],
+        }),
+      ),
+      import: Schema.optionalKey(
+        Schema.String.check(
+          Schema.isPattern(SAFE_IN_STRING_LITERAL, {
+            message: 'must be a module specifier, with no whitespace or quotes',
+          }),
+        ).annotate({
+          title: 'Import specifier',
+          description:
+            'The module of yours that exports the environment object, written into the client file as it stands: `@/env`, `../env`.',
+          examples: ['@/env', '../env'],
+        }),
+      ),
+      name: Schema.optionalKey(
+        Schema.String.check(
+          Schema.isPattern(/^[A-Za-z_$][\w$]*$/u, { message: 'must be a JavaScript identifier' }),
+          Schema.makeFilter((name) => !CLIENT_OWN_NAMES.includes(name), {
+            message: `must not be a name the client file binds itself (${CLIENT_OWN_NAMES.join(', ')})`,
+          }),
+        ).annotate({
+          title: 'Environment export name',
+          description:
+            'The named export of `import` that is the environment object, `env` when left out.',
+          examples: ['env'],
+        }),
+      ),
+    }).check(
+      Schema.makeFilter((url) => url.import === undefined || url.source === undefined, {
+        message:
+          'source goes with { env } alone: with import, the property is read from the environment object the module exports',
+      }),
+      Schema.makeFilter((url) => url.import !== undefined || url.name === undefined, {
+        message: 'name goes with { env, import }: it is the export of import to read env from',
+      }),
+    ),
+  ])
+    .pipe(Schema.withDecodingDefault(Effect.succeed('/')))
+    .annotate({
+      title: 'Base URL',
+      description:
+        'The `url` of the `OpenAPILink`. `/` (the default) is the origin of the page, `location.origin`, read on every request. `{ env }` reads an environment variable, `import.meta.env.VITE_API_URL!` or `process.env.API_URL!` with `source: "process.env"`. `{ env, import }` reads a property of an environment object a module of yours exports, `env.API_URL` from `@/env`.',
+      examples: [
+        '/',
+        { env: 'VITE_API_URL', source: 'import.meta.env' },
+        { env: 'API_URL', import: '@/env', name: 'env' },
+      ],
+    }),
+  credentials: Schema.optionalKey(
+    Schema.Literals(['include', 'same-origin', 'omit']).annotate({
+      title: 'Credentials',
+      description:
+        'The `credentials` of every request the client sends, passed to `fetch`. `include` sends the cookies to another origin as well. Left out, nothing is written and the browser decides.',
+      examples: ['include'],
+    }),
+  ),
+  import: Schema.optionalKey(
+    Schema.String.check(
+      Schema.isPattern(SAFE_IN_STRING_LITERAL, {
+        message: 'must be a module specifier, with no whitespace or quotes',
+      }),
+    ).annotate({
+      title: 'Contract import specifier',
+      description:
+        'Module the client imports `contract` from. Left out, the contract is imported relatively, or under `pathAlias`. Name the package of the contract when the client is written into another package.',
+      examples: ['@packages/contract'],
+    }),
+  ),
+}).annotate({
+  title: 'Typed client',
+  description:
+    'An oRPC client of the contract over `OpenAPILink`, exported as `client` with its type as `Client`. Rejected in server mode.',
+  examples: [
+    { output: 'src/client.ts', baseUrl: '/' },
+    { output: 'src/client.ts', baseUrl: { env: 'API_URL', source: 'process.env' } },
+    {
+      output: '../web/src/client.ts',
+      baseUrl: '/',
+      import: '@packages/api',
+      credentials: 'include',
+    },
+  ],
+})
+
+/** Fields both modes share. `template` and `client` belong to the contract variant alone. */
 const sharedFields = {
   input: InputSchema,
   format: Schema.optionalKey(
@@ -349,6 +485,7 @@ const ConfigSchema = Schema.Union([
         description: 'Opt into `implement(contract)` stubs. Rejected in server mode.',
       }),
     ),
+    client: Schema.optionalKey(ClientSchema),
   }),
 ]).annotate({ title: 'wakusei config' })
 

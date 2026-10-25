@@ -34,6 +34,7 @@ export type WakuseiConfig = {
   readonly pathAlias?: string | undefined
   readonly prefix?: string | undefined
   readonly template?: { readonly output?: string | undefined } | undefined
+  readonly client?: ClientConfig | undefined
   readonly components?:
     | ({
         readonly output?: string | undefined
@@ -44,6 +45,24 @@ export type WakuseiConfig = {
       })
     | undefined
 } & { readonly [K in ExportFlag]: boolean }
+
+/** Where the client reads its base URL from: the origin of the page, or the environment. */
+export type BaseUrl =
+  | string
+  | {
+      readonly env: string
+      readonly source?: 'import.meta.env' | 'process.env' | undefined
+      readonly import?: string | undefined
+      readonly name?: string | undefined
+    }
+
+/** `client`, contract mode alone. */
+export type ClientConfig = {
+  readonly output?: string | undefined
+  readonly baseUrl: BaseUrl
+  readonly credentials?: 'include' | 'same-origin' | 'omit' | undefined
+  readonly import?: string | undefined
+}
 
 /** One per-type `components.*` target after the config is written. */
 export type ComponentTarget = {
@@ -256,9 +275,22 @@ export function makeSchemasSpecifier(layout: Layout, fromDir: string) {
   const file = layout.schemas.split
     ? path.join(layout.schemas.file, 'index.ts')
     : layout.schemas.file
-  const src = path.join(layout.base, 'src')
-  if (layout.pathAlias !== undefined && isInside(src, file)) {
-    const alias = layout.pathAlias.replace(/\/$/u, '')
+  return makeLocalSpecifier(layout.base, layout.pathAlias, fromDir, file)
+}
+
+/**
+ * The specifier a module in `fromDir` imports `file` of the same package with: under the
+ * path alias (which stands for `<base>/src`) when `file` is in there, relatively otherwise.
+ */
+export function makeLocalSpecifier(
+  base: string,
+  pathAlias: string | undefined,
+  fromDir: string,
+  file: string,
+) {
+  const src = path.join(base, 'src')
+  if (pathAlias !== undefined && isInside(src, file)) {
+    const alias = pathAlias.replace(/\/$/u, '')
     const rel = toSpecifier(path.relative(src, file))
     return rel === '' ? alias : `${alias}/${rel}`
   }

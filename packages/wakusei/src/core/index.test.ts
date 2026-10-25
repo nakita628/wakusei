@@ -8,6 +8,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vite-plus/test'
 import { parseConfig } from '../config/index.js'
 import { OpenAPIError } from '../openapi/index.js'
 import { runGenerator, runGeneratorError } from '../testing/index.js'
+import { ClientImportError } from './client.js'
 import { orpc } from './index.js'
 import { PackageError } from './packages.js'
 
@@ -452,6 +453,98 @@ export const deletePostsPostId = os.deletePostsPostId.handler(async ({ input }) 
   })
 })
 
+describe('client', () => {
+  const header = `import { createORPCClient } from '@orpc/client'
+import type { ContractRouterClient } from '@orpc/contract'
+import type { JsonifiedClient } from '@orpc/openapi-client'
+import { OpenAPILink } from '@orpc/openapi-client/fetch'
+`
+
+  it('writes a client of the contract that calls the origin of the page', async () => {
+    await generate({ mode: 'contract', client: {} })
+    expect(listFiles('src')).toStrictEqual(['client.ts', 'components/index.ts', 'contract.ts'])
+    expect(read('src/client.ts')).toBe(`${header}import { contract } from './contract'
+
+export type Client = JsonifiedClient<ContractRouterClient<typeof contract>>
+
+export const client: Client = createORPCClient(
+  new OpenAPILink(contract, { url: () => globalThis.location.origin }),
+)
+`)
+  })
+
+  it('reads the base URL from process.env and sends the credentials', async () => {
+    await generate({
+      mode: 'contract',
+      client: { baseUrl: { env: 'API_URL', source: 'process.env' }, credentials: 'include' },
+    })
+    expect(read('src/client.ts')).toBe(`${header}import { contract } from './contract'
+
+export type Client = JsonifiedClient<ContractRouterClient<typeof contract>>
+
+export const client: Client = createORPCClient(
+  new OpenAPILink(contract, {
+    url: process.env.API_URL!,
+    fetch: (request, init) => globalThis.fetch(request, { ...init, credentials: 'include' }),
+  }),
+)
+`)
+  })
+
+  it('reads the base URL from import.meta.env by default', async () => {
+    await generate({ mode: 'contract', client: { baseUrl: { env: 'VITE_API_URL' } } })
+    expect(read('src/client.ts')).toContain(
+      'new OpenAPILink(contract, { url: import.meta.env.VITE_API_URL! })',
+    )
+  })
+
+  it('reads the base URL from an environment object a module exports', async () => {
+    await generate({
+      mode: 'contract',
+      client: { baseUrl: { env: 'API_URL', import: '../env', name: 'config' } },
+    })
+    expect(read('src/client.ts')).toBe(`${header}import { contract } from './contract'
+import { config } from '../env'
+
+export type Client = JsonifiedClient<ContractRouterClient<typeof contract>>
+
+export const client: Client = createORPCClient(new OpenAPILink(contract, { url: config.API_URL }))
+`)
+  })
+
+  it('writes the client to client.output, importing the contract under pathAlias', async () => {
+    await generate({ mode: 'contract', pathAlias: '@/', client: { output: 'src/lib/api.ts' } })
+    expect(read('src/lib/api.ts').split('\n')[4]).toBe("import { contract } from '@/contract'")
+  })
+
+  it('imports the contract of a single file relatively', async () => {
+    await generate({ mode: 'contract', output: 'src/api.ts', client: {} })
+    expect(listFiles('src')).toStrictEqual(['api.ts', 'client.ts'])
+    expect(read('src/client.ts').split('\n')[4]).toBe("import { contract } from './api'")
+  })
+
+  it('imports the contract by client.import from another package', async () => {
+    fs.mkdirSync('web', { recursive: true })
+    fs.writeFileSync('web/package.json', '{"name":"web"}')
+    await generate({
+      mode: 'contract',
+      client: { output: 'web/src/client.ts', import: '@packages/api' },
+    })
+    expect(read('web/src/client.ts').split('\n')[4]).toBe(
+      "import { contract } from '@packages/api'",
+    )
+  })
+
+  it('writes no client for a document with no operation', async () => {
+    fs.writeFileSync(
+      'openapi.yaml',
+      'openapi: 3.1.0\ninfo:\n  title: Empty\n  version: 1.0.0\npaths: {}\n',
+    )
+    await generate({ mode: 'contract', client: {} })
+    expect(fs.existsSync('src/client.ts')).toBe(false)
+  })
+})
+
 describe('single-file output', () => {
   it('writes the schemas and the contract into the .ts file', async () => {
     await generate({ mode: 'contract', output: 'src/api.ts' })
@@ -846,5 +939,25 @@ describe('failures', () => {
       }),
     )
     expect(fs.existsSync('src')).toBe(false)
+  })
+
+  it('fails with ClientImportError when the client is in another package without client.import', async () => {
+    fs.mkdirSync('web', { recursive: true })
+    fs.writeFileSync('web/package.json', '{"name":"web"}')
+    const config = await Effect.runPromise(
+      parseConfig({
+        input: 'openapi.yaml',
+        mode: 'contract',
+        output: '.',
+        client: { output: 'web/src/client.ts' },
+      }),
+    )
+    const error = await runGeneratorError(orpc(config))
+    expect(error).toStrictEqual(
+      new ClientImportError({
+        message: `${path.resolve('web/src/client.ts')} imports the contract from another package: set client.import to the name of the package ${path.resolve('src/contract.ts')} is written into.`,
+      }),
+    )
+    expect(fs.existsSync('web/src/client.ts')).toBe(false)
   })
 })

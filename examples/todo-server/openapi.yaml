@@ -1,0 +1,76 @@
+openapi: 3.1.0
+info:
+  title: Todo API
+  version: '1.0.0'
+paths:
+  /todos:
+    get:
+      responses:
+        '200':
+          description: All todos
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Todo'
+    post:
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                title:
+                  type: string
+                  minLength: 1
+              required: [title]
+      responses:
+        '200':
+          description: The created todo
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Todo'
+  /todos/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+    patch:
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                done:
+                  type: boolean
+              required: [done]
+      responses:
+        '200':
+          description: The updated todo
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Todo'
+    delete:
+      responses:
+        '204':
+          description: Deleted
+components:
+  schemas:
+    Todo:
+      type: object
+      properties:
+        id:
+          type: string
+        title:
+          type: string
+        done:
+          type: boolean
+      required: [id, title, done]

@@ -10,8 +10,10 @@
     "typecheck": "node scripts/typecheck.mjs"
   },
   "devDependencies": {
+    "@orpc/client": "^1.16.1",
     "@orpc/contract": "^1.16.1",
     "@orpc/openapi": "^1.16.1",
+    "@orpc/openapi-client": "^1.16.1",
     "@orpc/server": "^1.16.1",
     "@types/node": "^26.6.5",
     "@typespec/http": "catalog:",

@@ -13,6 +13,7 @@ npm install -D wakusei
 - OpenAPI schemas to validation schemas (`zod` | `valibot` | `arktype`)
 - [oRPC](https://orpc.dev/) procedures with `@orpc/server` or `@orpc/contract`
 - Handler stubs with merge (preserves `.use()` middleware, handler bodies, `.callable()`)
+- A typed client of the contract over `OpenAPILink` (`client`, contract mode)
 - Vite plugin for automatic regeneration on spec changes
 
 ## Quick Start
@@ -117,6 +118,10 @@ export const getOrpc = os
 export * from './orpc'
 ```
 
+## Examples
+
+[`examples/`](https://github.com/nakita628/wakusei/tree/main/examples) has a todo API in server mode and in contract mode, a handful of files each.
+
 ## CLI
 
 ```bash
@@ -143,6 +148,52 @@ npx wakusei --watch
 Reruns the config on every change to the input documents or to the config itself, and keeps watching when a run fails — a config that does not validate at startup included, so a typo does not end the session. Handler files are merged as on every run: add an operation and its stub appears, while the bodies already written stay put.
 
 The whole directory holding the input document is watched, so a TypeSpec entry that imports its siblings and an external `$ref` both trigger a rerun. When an edit to the config moves `input` to another directory, the watcher follows it.
+
+## Client
+
+In contract mode, `client` writes an oRPC client of the contract to `src/client.ts`. It talks to the server over [`OpenAPILink`](https://orpc.dev/docs/openapi/client/openapi-link), so any server that implements the document answers it. It is typed `JsonifiedClient<ContractRouterClient<typeof contract>>`, as the oRPC guide types an `OpenAPILink` client: what travels as JSON comes back as JSON (a `Date` as a string).
+
+```ts
+// wakusei.config.ts
+import { defineConfig } from 'wakusei'
+
+export default defineConfig({
+  input: 'openapi.yaml',
+  mode: 'contract',
+  output: '.',
+  client: { baseUrl: { env: 'API_URL', source: 'process.env' } },
+})
+```
+
+```ts
+// src/client.ts
+import { createORPCClient } from '@orpc/client'
+import type { ContractRouterClient } from '@orpc/contract'
+import { OpenAPILink } from '@orpc/openapi-client/fetch'
+
+import { contract } from './contract'
+
+export type Client = ContractRouterClient<typeof contract>
+
+export const client: Client = createORPCClient(
+  new OpenAPILink(contract, { url: process.env.API_URL! }),
+)
+```
+
+```ts
+import { client } from './client'
+
+const posts = await client.getPosts({ limit: 10 })
+```
+
+| `baseUrl`                                          | `url` of the link                      |
+| -------------------------------------------------- | -------------------------------------- |
+| `'/'` (default)                                    | `() => globalThis.location.origin`     |
+| `{ env: 'VITE_API_URL' }`                          | `import.meta.env.VITE_API_URL!`        |
+| `{ env: 'API_URL', source: 'process.env' }`        | `process.env.API_URL!`                 |
+| `{ env: 'API_URL', import: '@/env', name: 'env' }` | `env.API_URL`, with `env` from `@/env` |
+
+A fixed URL is not taken, since it differs between environments. `credentials` passes `credentials` to every `fetch`. The client needs `@orpc/client` and `@orpc/openapi-client` next to `@orpc/contract`. It imports the contract relatively (under `pathAlias` inside `<output>/src`). Set `client.import` to the package of the contract when the client is written into another package.
 
 ## Vite Plugin
 
@@ -173,7 +224,7 @@ New routes are added as stubs. Deleted routes are removed, and a handler file no
 
 ## Full Config Reference
 
-`mode: 'contract'` writes an `@orpc/contract` router; `template` opts into `implement(contract)` stubs (rejected in server mode). `components.output` (one aggregate file) is mutually exclusive with the per-type fields (`schemas`, `responses`, ...). Server mode is the one-shot CLI (`wakusei openapi.yaml`) and does not need a config file.
+`mode: 'contract'` writes an `@orpc/contract` router; `template` opts into `implement(contract)` stubs and `client` into a typed client (both rejected in server mode). `components.output` (one aggregate file) is mutually exclusive with the per-type fields (`schemas`, `responses`, ...). Server mode is the one-shot CLI (`wakusei openapi.yaml`) and does not need a config file.
 
 `pathAlias`, `prefix` and `package` are checked here because they are spliced into the generated code verbatim: a quote, a backslash or whitespace would close a `'...'` literal early.
 
@@ -202,6 +253,15 @@ export default defineConfig({
 
   // Contract mode only: implement(contract) stubs (default directory src/handlers)
   template: { output: 'src/handlers' },
+
+  // Contract mode only: a typed client of the contract over OpenAPILink
+  client: {
+    output: 'src/client.ts', // default
+    // '/' (default, the origin of the page) | { env, source? } | { env, import, name? }
+    baseUrl: { env: 'VITE_API_URL', source: 'import.meta.env' },
+    credentials: 'include', // passed to every fetch
+    // import: '@packages/contract', // the contract's package, from another package
+  },
 
   // as const on generated component objects (default false)
   readonly: false,

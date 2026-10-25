@@ -6,7 +6,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url'
 
 import { OpenAPIHandler } from '@orpc/openapi/fetch'
 import type { AnyRouter } from '@orpc/server'
-import { describe, expect, it } from 'vite-plus/test'
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 
 const generated = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '__generated__')
 
@@ -97,5 +97,37 @@ describe.each(['zod-server', 'valibot-server', 'arktype-server', 'zod-template']
     expect(
       await request('POST', '/postPublished', { id: 1, title: 'published', status: 'published' }),
     ).toStrictEqual({ status: 200, body: undefined })
+  })
+})
+
+describe('zod-template client', () => {
+  afterEach(() => {
+    vi.unstubAllEnvs()
+    vi.unstubAllGlobals()
+  })
+
+  it('calls the procedures through the generated client and its OpenAPILink', async () => {
+    const dir = path.join(generated, 'zod-template', 'src')
+    const router: AnyRouter = await import(
+      pathToFileURL(path.join(dir, 'handlers', 'index.ts')).href
+    )
+    const handler = new OpenAPIHandler(router)
+    // The client reads API_URL when it is imported and sends its requests through fetch, which
+    // hands them to the handler instead of the network.
+    vi.stubEnv('API_URL', 'http://localhost:3000')
+    vi.stubGlobal('fetch', async (request: Request) => {
+      const { response } = await handler.handle(request)
+      return response ?? new Response(null, { status: 404 })
+    })
+    const { client } = await import(pathToFileURL(path.join(dir, 'client.ts')).href)
+    expect(await client.getPosts({ limit: 10, status: 'published' })).toStrictEqual([
+      { id: 10, title: 'post', status: 'published' },
+    ])
+    expect(await client.postPosts({ title: 'hi' })).toStrictEqual({
+      id: 1,
+      title: 'hi',
+      status: 'draft',
+    })
+    await expect(client.getPosts({ limit: 0 })).rejects.toMatchObject({ code: 'BAD_REQUEST' })
   })
 })
