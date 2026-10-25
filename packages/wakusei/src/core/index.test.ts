@@ -9,6 +9,7 @@ import { parseConfig } from '../config/index.js'
 import { OpenAPIError } from '../openapi/index.js'
 import { runGenerator, runGeneratorError } from '../testing/index.js'
 import { orpc } from './index.js'
+import { PackageError } from './packages.js'
 
 const SPEC = `
 openapi: 3.1.0
@@ -241,7 +242,7 @@ export const getPosts = os
           v.string(),
           v.transform(Number),
           v.number(),
-          v.integer(),
+          v.safeInteger(),
           v.minValue(1),
           v.maxValue(100),
         ),
@@ -261,7 +262,7 @@ export const getPostsPostId = os
   .route({ method: 'GET', path: '/posts/{postId}' })
   .input(
     v.object({
-      postId: v.pipe(v.string(), v.transform(Number), v.number(), v.integer(), v.minValue(1)),
+      postId: v.pipe(v.string(), v.transform(Number), v.number(), v.safeInteger(), v.minValue(1)),
     }),
   )
   .output(PostSchema)
@@ -271,7 +272,7 @@ export const deletePostsPostId = os
   .route({ method: 'DELETE', path: '/posts/{postId}', successStatus: 204 })
   .input(
     v.object({
-      postId: v.pipe(v.string(), v.transform(Number), v.number(), v.integer(), v.minValue(1)),
+      postId: v.pipe(v.string(), v.transform(Number), v.number(), v.safeInteger(), v.minValue(1)),
     }),
   )
   .handler(async ({ input }) => {})
@@ -288,9 +289,12 @@ export const getPosts = os
   .route({ method: 'GET', path: '/posts' })
   .input(
     type({
-      'limit?': type('string.integer.parse').to(
-        type('number.integer >= 1').and(type('number.integer <= 100')),
-      ),
+      'limit?': type('string')
+        .pipe((data, ctx) => {
+          const value = Number(data)
+          return Number.isSafeInteger(value) ? value : ctx.error('an integer')
+        })
+        .to('number.integer >= 1 & number.integer <= 100'),
     }),
   )
   .output(type(PostSchema).array())
@@ -304,13 +308,31 @@ export const postPosts = os
 
 export const getPostsPostId = os
   .route({ method: 'GET', path: '/posts/{postId}' })
-  .input(type({ postId: type('string.integer.parse').to('number.integer >= 1') }))
+  .input(
+    type({
+      postId: type('string')
+        .pipe((data, ctx) => {
+          const value = Number(data)
+          return Number.isSafeInteger(value) ? value : ctx.error('an integer')
+        })
+        .to('number.integer >= 1'),
+    }),
+  )
   .output(PostSchema)
   .handler(async ({ input }) => {})
 
 export const deletePostsPostId = os
   .route({ method: 'DELETE', path: '/posts/{postId}', successStatus: 204 })
-  .input(type({ postId: type('string.integer.parse').to('number.integer >= 1') }))
+  .input(
+    type({
+      postId: type('string')
+        .pipe((data, ctx) => {
+          const value = Number(data)
+          return Number.isSafeInteger(value) ? value : ctx.error('an integer')
+        })
+        .to('number.integer >= 1'),
+    }),
+  )
   .handler(async ({ input }) => {})
 `)
   })
@@ -577,7 +599,7 @@ export type PetJsonMediaTypeSchema = z.infer<typeof PetJsonMediaTypeSchema>
   it('writes a kind configured under components without its flag', async () => {
     await generate({
       input: 'responses.yaml',
-      components: { responses: { output: 'src/responses.ts', import: '#schemas' } },
+      components: { responses: { output: 'src/responses.ts' } },
     })
     expect(listFiles('src')).toStrictEqual([
       'components/schemas.ts',
@@ -586,7 +608,7 @@ export type PetJsonMediaTypeSchema = z.infer<typeof PetJsonMediaTypeSchema>
       'responses.ts',
     ])
     expect(read('src/responses.ts').split('\n')[0]).toBe(
-      "import { ErrorResponseSchema } from '#schemas'",
+      "import { ErrorResponseSchema } from './components/schemas'",
     )
   })
 
@@ -617,10 +639,42 @@ export type PetJsonMediaTypeSchema = z.infer<typeof PetJsonMediaTypeSchema>
     )
   })
 
-  it('uses components.schemas.import in handlers', async () => {
-    await generate({ components: { schemas: { output: 'src/schemas.ts', import: '@/schemas' } } })
+  it('imports schemas outside <output>/src relatively, even with pathAlias', async () => {
+    await generate({ pathAlias: '@/', components: { schemas: { output: 'schemas.ts' } } })
     expect(read('src/handlers/posts.ts').split('\n')[2]).toBe(
-      "import { CreatePostSchema, PostSchema } from '@/schemas'",
+      "import { CreatePostSchema, PostSchema } from '../../schemas'",
+    )
+  })
+
+  it('imports schemas written into another package by components.schemas.package', async () => {
+    fs.mkdirSync('packages/schemas', { recursive: true })
+    fs.writeFileSync('packages/schemas/package.json', '{"name":"@packages/schemas"}')
+    await generate({
+      input: 'responses.yaml',
+      components: {
+        schemas: { output: 'packages/schemas/src', split: true, package: '@packages/schemas' },
+        responses: { output: 'src/responses.ts' },
+      },
+    })
+    expect([
+      read('src/handlers/posts.ts').split('\n')[1],
+      read('src/responses.ts').split('\n')[0],
+      read('packages/schemas/src/post.ts').split('\n')[0],
+    ]).toStrictEqual([
+      "import { PostSchema } from '@packages/schemas'",
+      "import { ErrorResponseSchema } from '@packages/schemas'",
+      "import * as z from 'zod'",
+    ])
+  })
+
+  it('imports a components file in another package by components.package', async () => {
+    fs.mkdirSync('packages/api', { recursive: true })
+    fs.writeFileSync('packages/api/package.json', '{"name":"@packages/api"}')
+    await generate({
+      components: { output: 'packages/api/index.ts', package: '@packages/api' },
+    })
+    expect(read('src/handlers/posts.ts').split('\n')[2]).toBe(
+      "import { CreatePostSchema, PostSchema } from '@packages/api'",
     )
   })
 
@@ -772,5 +826,25 @@ describe('failures', () => {
     )
     const error = await runGeneratorError(orpc(config))
     expect(error).toBeInstanceOf(OpenAPIError)
+  })
+
+  it('fails with PackageError when the schemas are in another package that names none', async () => {
+    fs.mkdirSync('packages/schemas', { recursive: true })
+    fs.writeFileSync('packages/schemas/package.json', '{"name":"@packages/schemas"}')
+    const config = await Effect.runPromise(
+      parseConfig({
+        input: 'openapi.yaml',
+        mode: 'server',
+        output: '.',
+        components: { schemas: { output: 'packages/schemas/index.ts' } },
+      }),
+    )
+    const error = await runGeneratorError(orpc(config))
+    expect(error).toStrictEqual(
+      new PackageError({
+        message: `${path.resolve('src/handlers')} imports the schemas from another package: set components.schemas.package to the name of the package ${path.resolve('packages/schemas/index.ts')} is written into.`,
+      }),
+    )
+    expect(fs.existsSync('src')).toBe(false)
   })
 })

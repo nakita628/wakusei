@@ -3,7 +3,7 @@ import os from 'node:os'
 import path from 'node:path'
 
 import * as NodeServices from '@effect/platform-node/NodeServices'
-import { Console, Effect, Fiber } from 'effect'
+import { Console, Effect, Fiber, Stdio } from 'effect'
 import { afterEach, describe, expect, it } from 'vite-plus/test'
 
 import { wakusei } from './index.js'
@@ -11,7 +11,6 @@ import { wakusei } from './index.js'
 // Its own file: every case here forks a watcher that has to be interrupted, which does not
 // fit the run-to-completion shape of the rest of the CLI suite.
 
-const ENTRY_URL = new URL('../index.ts', import.meta.url).href
 // oxlint-disable-next-line no-control-regex -- the help renderer colors its output
 const ANSI = /\u001B\[[0-9;]*m/gu
 
@@ -54,8 +53,9 @@ function startCli(argv: readonly string[]) {
     error: (...args: readonly unknown[]) => lines.push(args.map(String).join(' ')),
   })
   const fiber = Effect.runFork(
-    wakusei(argv, ENTRY_URL).pipe(
+    wakusei().pipe(
       Effect.provideService(Console.Console, recorder),
+      Effect.provide(Stdio.layerTest({ args: Effect.succeed(argv) })),
       Effect.provide(NodeServices.layer),
     ),
   )

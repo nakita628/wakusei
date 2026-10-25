@@ -81,10 +81,10 @@ itself to, and its comments explain the choices.
 
 - `pnpm-lock.yaml` is written by `pnpm install`. Never edit it by hand. CI installs with
   `--frozen-lockfile`.
-- `effect` and `@effect/platform-node` are pinned exactly to the release candidate oas-truth's
-  schema-to-library uses; `@effect/platform-node-shared` is forced to the same one by `overrides` in
-  `pnpm-workspace.yaml` (its caret range would otherwise resolve a later RC that imports modules
-  the pinned `effect` lacks). They move together, in one change.
+- `effect` and `@effect/platform-node` are pinned exactly to the release oas-truth's schema-truth
+  uses; `@effect/platform-node-shared` is forced to the same one by `overrides` in
+  `pnpm-workspace.yaml` (its caret range would otherwise resolve a later release that peers on a
+  newer `effect` than the pinned one). They move together, in one change.
 - `oas-truth` is the generator's core; a bump changes generated output, so read the diff of the
   test expectations rather than updating them blindly. A version newer than pnpm's minimum
   release age goes into `minimumReleaseAgeExclude`, and comes out once it is old enough.

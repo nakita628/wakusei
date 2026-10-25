@@ -5,6 +5,7 @@ apidevtools
 arktype
 artipacked
 bsdtar
+checksummed
 codegen
 GOARCH
 hekireki

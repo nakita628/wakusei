@@ -19,7 +19,7 @@ export function makeReport(config: Config) {
  * config and the line to report. `reload` is for the passes after the first, where the
  * config file may have been edited since it was imported.
  *
- * The generator pipeline pulls in the OpenAPI parser, the TypeSpec compiler and ts-morph,
+ * The generator pipeline pulls in the OpenAPI parser, the TypeSpec compiler and oxc-parser,
  * so it is loaded here rather than at module scope; after the first pass the loader
  * answers from cache, so a watch tick pays nothing.
  */

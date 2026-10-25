@@ -13,15 +13,20 @@ import { readFileSync } from 'node:fs'
 import process from 'node:process'
 
 import semver from 'semver'
-import { parse } from 'yaml'
+import { parseAllDocuments } from 'yaml'
 
 const SCOPE = '@typespec/'
 
 type LockedPackage = { readonly peerDependencies?: Readonly<Record<string, string>> }
 
-const lockfile: { readonly packages?: Readonly<Record<string, LockedPackage>> } = parse(
+// pnpm 12 writes the lockfile as two YAML documents: the first pins pnpm itself
+// (`packageManagerDependencies`), the last one resolves the workspace. Only the last one
+// holds the TypeSpec packages.
+const documents = parseAllDocuments(
   readFileSync(new URL('../pnpm-lock.yaml', import.meta.url), 'utf8'),
 )
+const last = Array.isArray(documents) ? documents.at(-1) : undefined
+const lockfile: { readonly packages?: Readonly<Record<string, LockedPackage>> } = last?.toJS() ?? {}
 
 // `packages` has one key per resolved version — `@typespec/http@1.16.0` — whatever the peers it
 // was installed with (those are `snapshots`), so two keys for one name are two versions.

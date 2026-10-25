@@ -339,13 +339,30 @@ export default defineConfig({
         rules: { 'custom/no-effect-run': 'off' },
       },
       {
-        files: ['src/format/**', 'src/file/**', 'src/merge/**', 'src/config/**', 'src/openapi/**'],
+        files: ['src/format/**', 'src/file/**', 'src/syntax/**', 'src/config/**', 'src/openapi/**'],
         rules: {
           'no-restricted-imports': [
             'error',
             {
               patterns: [
                 { regex: '^\\.\\./', message: 'leaf module: no project-internal imports allowed' },
+              ],
+            },
+          ],
+        },
+      },
+      {
+        files: ['src/merge/**'],
+        rules: {
+          'no-restricted-imports': [
+            'error',
+            {
+              patterns: [
+                {
+                  regex:
+                    '^(\\.\\./)+(cli|config|core|emit|file|format|generator|helper|openapi|testing|vite-plugin)(/.*)?$',
+                  message: 'merge may only import syntax',
+                },
               ],
             },
           ],
@@ -360,7 +377,7 @@ export default defineConfig({
               patterns: [
                 {
                   regex:
-                    '^(\\.\\./)+(cli|config|core|generator|helper|merge|openapi|testing|vite-plugin)(/.*)?$',
+                    '^(\\.\\./)+(cli|config|core|generator|helper|merge|openapi|syntax|testing|vite-plugin)(/.*)?$',
                   message: 'emit may only import format, file',
                 },
               ],
@@ -378,7 +395,7 @@ export default defineConfig({
                 {
                   regex:
                     '^(\\.\\./)+(cli|config|core|emit|file|format|generator|merge|openapi|testing|vite-plugin)(/.*)?$',
-                  message: 'helper may only import helper',
+                  message: 'helper may only import helper, syntax',
                 },
               ],
             },
@@ -394,7 +411,7 @@ export default defineConfig({
               patterns: [
                 {
                   regex:
-                    '^(\\.\\./)+(cli|config|core|emit|file|format|merge|openapi|testing|vite-plugin)(/.*)?$',
+                    '^(\\.\\./)+(cli|config|core|emit|file|format|merge|openapi|syntax|testing|vite-plugin)(/.*)?$',
                   message: 'generator may only import helper',
                 },
               ],
@@ -410,7 +427,7 @@ export default defineConfig({
             {
               patterns: [
                 {
-                  regex: '^(\\.\\./)+(cli|config|testing|vite-plugin)(/.*)?$',
+                  regex: '^(\\.\\./)+(cli|config|syntax|testing|vite-plugin)(/.*)?$',
                   message:
                     'core may only import helper, generator, emit, file, format, merge, openapi',
                 },
@@ -428,7 +445,7 @@ export default defineConfig({
               patterns: [
                 {
                   regex:
-                    '^(\\.\\./)+(cli|config|core|emit|format|generator|helper|merge|openapi|vite-plugin)(/.*)?$',
+                    '^(\\.\\./)+(cli|config|core|emit|format|generator|helper|merge|openapi|syntax|vite-plugin)(/.*)?$',
                   message: 'testing may only import file',
                 },
               ],
@@ -445,7 +462,7 @@ export default defineConfig({
               patterns: [
                 {
                   regex:
-                    '^(\\.\\./)+(emit|file|format|generator|helper|merge|openapi|testing)(/.*)?$',
+                    '^(\\.\\./)+(emit|file|format|generator|helper|merge|openapi|syntax|testing)(/.*)?$',
                   message: 'cli may only import config, core',
                 },
               ],
@@ -462,7 +479,7 @@ export default defineConfig({
               patterns: [
                 {
                   regex:
-                    '^(\\.\\./)+(cli|emit|format|generator|helper|merge|openapi|testing)(/.*)?$',
+                    '^(\\.\\./)+(cli|emit|format|generator|helper|merge|openapi|syntax|testing)(/.*)?$',
                   message: 'vite-plugin may only import config, core, file',
                 },
               ],

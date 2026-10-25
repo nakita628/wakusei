@@ -5,6 +5,4 @@ import { Effect } from 'effect'
 
 import { wakusei } from './cli/index.js'
 
-NodeRuntime.runMain(
-  wakusei(process.argv.slice(2), import.meta.url).pipe(Effect.provide(NodeServices.layer)),
-)
+NodeRuntime.runMain(wakusei().pipe(Effect.provide(NodeServices.layer)))

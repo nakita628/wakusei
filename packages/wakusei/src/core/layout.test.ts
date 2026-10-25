@@ -35,11 +35,12 @@ describe('resolveLayout', () => {
     expect(resolveLayout(base)).toStrictEqual({
       base: path.resolve('gen'),
       pathAlias: undefined,
-      schemas: { file: out('src/components/index.ts'), split: false, import: undefined },
+      schemas: { file: out('src/components/index.ts'), split: false, package: undefined },
       aggregate: true,
       components: [],
       handlersDir: out('src/handlers'),
       contract: undefined,
+      packageRoots: new Map(),
     })
   })
 
@@ -48,14 +49,7 @@ describe('resolveLayout', () => {
     expect([layout.aggregate, layout.schemas.file, layout.components]).toStrictEqual([
       false,
       out('src/components/schemas.ts'),
-      [
-        {
-          kind: 'headers',
-          split: false,
-          file: out('src/components/headers.ts'),
-          import: undefined,
-        },
-      ],
+      [{ kind: 'headers', split: false, file: out('src/components/headers.ts') }],
     ])
   })
 
@@ -68,7 +62,7 @@ describe('resolveLayout', () => {
     expect([layout.aggregate, layout.schemas.file, layout.components]).toStrictEqual([
       true,
       out('src/api.ts'),
-      [{ kind: 'links', split: false, file: out('src/api.ts'), import: undefined }],
+      [{ kind: 'links', split: false, file: out('src/api.ts') }],
     ])
   })
 
@@ -76,13 +70,13 @@ describe('resolveLayout', () => {
     const layout = resolveLayout({
       ...base,
       components: {
-        schemas: { output: 'src/schemas', split: true, import: '@/schemas' },
-        callbacks: { output: 'src/callbacks', import: '#s' },
+        schemas: { output: 'src/schemas', split: true, package: '@packages/schemas' },
+        callbacks: { output: 'src/callbacks' },
       },
     })
     expect([layout.schemas, layout.components]).toStrictEqual([
-      { file: out('src/schemas'), split: true, import: '@/schemas' },
-      [{ kind: 'callbacks', split: false, file: out('src/callbacks/index.ts'), import: '#s' }],
+      { file: out('src/schemas'), split: true, package: '@packages/schemas' },
+      [{ kind: 'callbacks', split: false, file: out('src/callbacks/index.ts') }],
     ])
   })
 
@@ -93,7 +87,7 @@ describe('resolveLayout', () => {
     })
     expect([layout.aggregate, layout.components]).toStrictEqual([
       false,
-      [{ kind: 'responses', split: true, file: out('src/responses'), import: undefined }],
+      [{ kind: 'responses', split: true, file: out('src/responses') }],
     ])
   })
 
@@ -107,10 +101,10 @@ describe('resolveLayout', () => {
       },
     })
     expect([layout.schemas, layout.components]).toStrictEqual([
-      { file: out('src/schemas'), split: true, import: undefined },
+      { file: out('src/schemas'), split: true, package: undefined },
       [
-        { kind: 'responses', split: true, file: out('src/responses'), import: undefined },
-        { kind: 'callbacks', split: false, file: out('src/callbacks/index.ts'), import: undefined },
+        { kind: 'responses', split: true, file: out('src/responses') },
+        { kind: 'callbacks', split: false, file: out('src/callbacks/index.ts') },
       ],
     ])
   })
@@ -144,16 +138,34 @@ describe('makeSchemasSpecifier', () => {
     expect(makeSchemasSpecifier(layout, out('src/handlers'))).toBe('@/components')
   })
 
-  it('prefers the override, then components.schemas.import', () => {
+  it('is relative for schemas outside <output>/src, even with pathAlias', () => {
     const layout = resolveLayout({
       ...base,
-      pathAlias: '@',
-      components: { schemas: { output: 'src/schemas.ts', import: '#schemas' } },
+      pathAlias: '@/',
+      components: { schemas: { output: 'schemas/index.ts' } },
     })
+    expect(makeSchemasSpecifier(layout, out('src/handlers'))).toBe('../../schemas')
+  })
+
+  it('takes the package name from another package, and the path inside the same one', () => {
+    const layout = {
+      ...resolveLayout({
+        ...base,
+        pathAlias: '@/',
+        components: {
+          schemas: { output: 'src/schemas.ts', package: '@packages/schemas' },
+          responses: { output: 'src/responses.ts' },
+        },
+      }),
+      packageRoots: new Map([
+        [out('src'), out('.')],
+        [out('src/handlers'), path.resolve('app')],
+      ]),
+    }
     expect([
-      makeSchemasSpecifier(layout, out('src'), '~/x'),
+      makeSchemasSpecifier(layout, out('src/handlers')),
       makeSchemasSpecifier(layout, out('src')),
-    ]).toStrictEqual(['~/x', '#schemas'])
+    ]).toStrictEqual(['@packages/schemas', '@/schemas'])
   })
 })
 

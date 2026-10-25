@@ -1,0 +1,5 @@
+{
+  "name": "@packages/schemas",
+  "private": true,
+  "type": "module"
+}

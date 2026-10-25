@@ -7,18 +7,17 @@ packages:
 # `@typespec/*` belongs here, so move anything else back to its package.json.
 catalogMode: strict
 catalog:
-  '@typespec/http': ^1.16.0
+  '@typespec/http': ^1.17.0
 allowBuilds:
   esbuild: false
-  # Optional native accelerator pulled in through oas-truth -> schema-to-library -> effect ->
+  # Optional native accelerator pulled in through oas-truth -> schema-truth -> effect ->
   # msgpackr; the JS fallback is enough, so its build script stays off.
   msgpackr-extract: false
 minimumReleaseAgeExclude:
-  - oas-truth@0.4.0
-  - schema-to-library@0.5.0
-  - zod@4.6.4
-# @effect/platform-node pins effect to one release candidate but takes
-# @effect/platform-node-shared with a caret, which resolves to a later RC that imports
-# modules the pinned effect does not have. Keep the whole Effect set on one RC.
+  - oas-truth@0.5.1
+  - schema-truth@0.7.0
+# @effect/platform-node pins effect to one release but takes @effect/platform-node-shared
+# with a caret, which resolves to a later release that peers on a newer effect than the
+# pinned one. Keep the whole Effect set on the release schema-truth uses.
 overrides:
-  '@effect/platform-node-shared': 4.0.0-rc.112
+  '@effect/platform-node-shared': 4.0.5

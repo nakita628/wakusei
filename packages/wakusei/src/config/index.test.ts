@@ -84,14 +84,14 @@ describe('parseConfig', () => {
       exportParametersTypes: true,
       exportMediaTypes: true,
       components: {
-        schemas: { output: 'src/schemas', split: true, import: '@/schemas', exportTypes: true },
-        responses: { output: 'src/components/responses.ts', import: '@/schemas', split: false },
-        parameters: {
-          output: 'src/components/parameters.ts',
-          import: '~/schemas',
-          split: false,
+        schemas: {
+          output: 'packages/schemas',
+          split: true,
+          package: '@packages/schemas',
           exportTypes: true,
         },
+        responses: { output: 'src/components/responses.ts', split: false },
+        parameters: { output: 'src/components/parameters.ts', split: false, exportTypes: true },
         callbacks: { output: 'src/components/callbacks.ts', split: false },
         mediaTypes: { output: 'src/components/media.ts', split: false, exportTypes: false },
       },
@@ -126,27 +126,22 @@ describe('parseConfig', () => {
       exportMediaTypes: true,
       exportMediaTypesTypes: true,
       components: {
-        schemas: { output: 'src/schemas', exportTypes: true, split: true, import: '@/schemas' },
-        responses: { output: 'src/responses', split: true, import: '@/schemas' },
-        parameters: {
-          output: 'src/parameters',
+        schemas: {
+          output: 'packages/schemas/src',
           exportTypes: true,
           split: true,
-          import: '@/schemas',
+          package: '@packages/schemas',
         },
-        headers: { output: 'src/headers', exportTypes: true, split: true, import: '@/schemas' },
+        responses: { output: 'src/responses', split: true },
+        parameters: { output: 'src/parameters', exportTypes: true, split: true },
+        headers: { output: 'src/headers', exportTypes: true, split: true },
         examples: { output: 'src/examples', split: true },
-        requestBodies: { output: 'src/requestBodies', split: true, import: '@/schemas' },
+        requestBodies: { output: 'src/requestBodies', split: true },
         securitySchemes: { output: 'src/securitySchemes', split: true },
         links: { output: 'src/links', split: true },
-        callbacks: { output: 'src/callbacks', split: true, import: '@/schemas' },
-        pathItems: { output: 'src/pathItems', split: true, import: '@/schemas' },
-        mediaTypes: {
-          output: 'src/mediaTypes',
-          exportTypes: true,
-          split: true,
-          import: '@/schemas',
-        },
+        callbacks: { output: 'src/callbacks', split: true },
+        pathItems: { output: 'src/pathItems', split: true },
+        mediaTypes: { output: 'src/mediaTypes', exportTypes: true, split: true },
       },
     } as const
     expect(await parse(config)).toStrictEqual({ ...defaults, ...config })
@@ -167,13 +162,21 @@ describe('parseConfig', () => {
     expect(await parse(config)).toStrictEqual({ ...config, ...defaults })
   })
 
-  it.each(['../schemas', '.', '#schemas', '~/lib'])(
-    'accepts import specifier %s',
+  it('accepts components.package next to components.output', async () => {
+    const config = {
+      ...base,
+      components: { output: 'packages/api/index.ts', package: '@packages/api' },
+    }
+    expect(await parse(config)).toStrictEqual({ ...config, ...defaults })
+  })
+
+  it.each(['@packages/schemas', 'schemas', '#schemas'])(
+    'accepts package name %s',
     async (value) => {
       const config = {
         ...base,
         components: {
-          schemas: { output: 'src/schemas.ts', import: value, split: false, exportTypes: false },
+          schemas: { output: 'src/schemas.ts', package: value, split: false, exportTypes: false },
         },
       }
       expect(await parse(config)).toStrictEqual({ ...config, ...defaults })
@@ -272,9 +275,32 @@ describe('parseConfig', () => {
       'pathAlias: must be an import prefix, with no whitespace or quotes',
     ],
     [
-      'a components import with whitespace',
-      { ...base, components: { schemas: { output: 'src/schemas.ts', import: 'foo bar' } } },
-      'components.schemas.import: must be a module specifier, with no whitespace or quotes',
+      'a package name with whitespace',
+      { ...base, components: { schemas: { output: 'src/schemas.ts', package: 'foo bar' } } },
+      'components.schemas.package: must be a module specifier, with no whitespace or quotes',
+    ],
+    [
+      'components.schemas.import, which was removed',
+      { ...base, components: { schemas: { output: 'src/schemas.ts', import: '@/schemas' } } },
+      'components.schemas.import: import was removed: a generated file imports the schemas relatively, under pathAlias inside `<output>/src`, or by `package` from another package.',
+    ],
+    [
+      'components.responses.import, which was removed',
+      { ...base, components: { responses: { output: 'src/r.ts', import: '@/schemas' } } },
+      'components.responses.import: import was removed: a generated file imports the schemas relatively, under pathAlias inside `<output>/src`, or by `package` from another package.',
+    ],
+    [
+      'package on a kind other files never import',
+      { ...base, components: { responses: { output: 'src/r.ts', package: '@p/r' } } },
+      'components.responses.package: Expected no excess property',
+    ],
+    [
+      'components.package without components.output',
+      {
+        ...base,
+        components: { package: '@p/c', schemas: { output: 'src/schemas.ts' } },
+      },
+      'components: components.package goes with components.output; with per-type outputs, set components.schemas.package.',
     ],
     [
       'a prefix with a quote',
@@ -297,14 +323,14 @@ describe('parseConfig', () => {
       'prefix: must be a path prefix, with no whitespace or quotes',
     ],
     [
-      'an empty components import',
-      { ...base, components: { schemas: { output: 'src/schemas.ts', import: '' } } },
-      'components.schemas.import: must be a module specifier, with no whitespace or quotes',
+      'an empty package name',
+      { ...base, components: { schemas: { output: 'src/schemas.ts', package: '' } } },
+      'components.schemas.package: must be a module specifier, with no whitespace or quotes',
     ],
     [
-      'a components import with a quote',
-      { ...base, components: { schemas: { output: 'src/schemas.ts', import: "foo'bar" } } },
-      'components.schemas.import: must be a module specifier, with no whitespace or quotes',
+      'a package name with a quote',
+      { ...base, components: { schemas: { output: 'src/schemas.ts', package: "foo'bar" } } },
+      'components.schemas.package: must be a module specifier, with no whitespace or quotes',
     ],
     [
       'a pathAlias with a backslash',

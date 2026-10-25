@@ -109,7 +109,7 @@ export function writeComponents(openapi: OpenAPI, config: WakuseiConfig, layout:
   const splitFiles = layout.components
     .filter((target) => target.split)
     .flatMap((target) => {
-      const from = makeSchemasSpecifier(layout, target.file, target.import)
+      const from = makeSchemasSpecifier(layout, target.file)
       const schemaImports = declarations.map((d) => ({ name: d.varName, from }))
       return writeSplitFiles(
         target.file,
@@ -131,7 +131,7 @@ export function writeComponents(openapi: OpenAPI, config: WakuseiConfig, layout:
       .filter((part) => part !== '')
       .join('\n\n')
     if (code === '') return []
-    const from = makeSchemasSpecifier(layout, path.dirname(file), targets[0]?.import)
+    const from = makeSchemasSpecifier(layout, path.dirname(file))
     const schemaImports = declarations.map((d) => ({ name: d.varName, from }))
     return [{ path: file, code: withImports(code, [...libraryImports, ...schemaImports]) }]
   })

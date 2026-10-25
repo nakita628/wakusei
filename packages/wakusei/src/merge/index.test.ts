@@ -412,4 +412,37 @@ export const listPosts=os.route({method:'GET',path:'/posts'}).handler(async({inp
 `
     expect(mergeProcedureFile('// emptied by hand\n', generated)).toBe(generated)
   })
+
+  it('leaves an existing file that does not parse as it is', () => {
+    const existing = `import {os} from '@orpc/server'
+
+export const listPosts=os.route({method:'GET',path:'/posts'}).handler(async({input})=>{return db.posts.findMany(
+`
+    const generated = `import {os} from '@orpc/server'
+
+export const listPosts=os.route({method:'GET',path:'/posts'}).handler(async({input})=>{})
+`
+    expect(mergeProcedureFile(existing, generated)).toBe(existing)
+  })
+
+  it('keeps comments and formatting inside a handler body', () => {
+    const existing = `import {os} from '@orpc/server'
+
+export const listPosts=os.route({method:'GET',path:'/posts'}).handler(async ({ input }) => {
+  // the newest first
+  return db.posts.findMany({ orderBy: { id: 'desc' } })
+})
+`
+    const generated = `import {os} from '@orpc/server'
+
+export const listPosts=os.route({method:'GET',path:'/posts'}).handler(async({input})=>{})
+`
+    expect(mergeProcedureFile(existing, generated)).toBe(`import {os} from '@orpc/server'
+
+export const listPosts=os.route({method:'GET',path:'/posts'}).handler(async({input})=>{
+  // the newest first
+  return db.posts.findMany({ orderBy: { id: 'desc' } })
+})
+`)
+  })
 })

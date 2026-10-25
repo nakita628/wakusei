@@ -1,0 +1,10 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "paths": {
+      "@/*": ["../../__generated__/zod-package/src/*"],
+      "@packages/schemas": ["../../__generated__/zod-package/packages/schemas/src/index.ts"]
+    }
+  },
+  "include": ["../../__generated__/zod-package/**/*"]
+}
