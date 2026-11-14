@@ -23,7 +23,7 @@
     "textlint-rule-no-todo": "2.0.1",
     "textlint-rule-terminology": "5.2.16",
     "typescript": "7.0.2",
-    "vite-plus": "1.4.0",
+    "vite-plus": "1.5.0",
     "yaml": "2.9.1"
   },
   "packageManager": "pnpm@12.17.0"
