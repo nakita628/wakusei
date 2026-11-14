@@ -14,7 +14,7 @@
   "devDependencies": {
     "@secretlint/secretlint-rule-preset-recommend": "13.0.7",
     "@textlint-rule/textlint-rule-no-unmatched-pair": "2.0.4",
-    "cspell": "10.4.0",
+    "cspell": "10.4.1",
     "markdownlint-cli2": "0.24.0",
     "secretlint": "13.0.7",
     "semver": "7.8.5",
