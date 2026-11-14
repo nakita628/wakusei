@@ -51,7 +51,7 @@
     "effect": "4.0.5",
     "oas-truth": "^0.5.1",
     "oxc-parser": "^0.155.0",
-    "oxfmt": "^0.74.0"
+    "oxfmt": "^0.77.0"
   },
   "devDependencies": {
     "@types/node": "^26.6.5"
