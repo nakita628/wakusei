@@ -50,7 +50,7 @@
     "@effect/platform-node": "4.0.5",
     "effect": "4.0.5",
     "oas-truth": "^0.5.1",
-    "oxc-parser": "^0.155.0",
+    "oxc-parser": "^0.157.0",
     "oxfmt": "^0.74.0"
   },
   "devDependencies": {
