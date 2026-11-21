@@ -21,4 +21,4 @@ minimumReleaseAgeExclude:
 # with a caret, which resolves to a later release that peers on a newer effect than the
 # pinned one. Keep the whole Effect set on the release schema-truth uses.
 overrides:
-  '@effect/platform-node-shared': 4.0.5
+  '@effect/platform-node-shared': 4.1.4
