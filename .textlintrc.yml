@@ -6,12 +6,6 @@
 # kept is language-agnostic, plus terminology — the rule that matters most in a repository
 # written by an agent, because it is what keeps "Javascript", "Typescript" and "NPM" from
 # drifting into the docs one commit at a time.
-plugins:
-  # The Cursor rules (.cursor/rules/*.mdc) are Markdown under another extension.
-  '@textlint/markdown':
-    extensions:
-      - .mdc
-
 rules:
   # sapegin's term list: the canonical spelling of ~250 technical terms (JavaScript, TypeScript,
   # npm, GitHub, JSON, macOS, ...). Code spans and fenced blocks are skipped by the rule, so

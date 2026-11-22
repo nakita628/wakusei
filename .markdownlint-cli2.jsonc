@@ -38,9 +38,7 @@
     },
   },
 
-  // The Cursor rules (.cursor/rules/*.mdc) are Markdown with front matter, and they are the
-  // instructions this repository is operated by, so they are held to the same standard.
   // `gitignore: true` drops node_modules, dist and coverage, so this never drifts from .gitignore.
-  "globs": ["**/*.md", ".cursor/rules/*.mdc"],
+  "globs": ["**/*.md"],
   "gitignore": true,
 }

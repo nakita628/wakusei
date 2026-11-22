@@ -29,7 +29,7 @@ Title: `type(scope): summary` — imperative mood, no trailing period.
 
 ## When
 
-<!-- Release impact: none | next release | version bumped. -->
+<!-- Release impact, from the title's type: none | patch (fix, perf) | minor (feat, or breaking while 0.x). Never bump the version by hand. -->
 
 ## How
 

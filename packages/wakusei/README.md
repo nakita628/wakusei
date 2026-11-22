@@ -356,7 +356,7 @@ Unknown keys are rejected, and an invalid config names the field (`Invalid confi
 
 ## Contributing
 
-If you find any issues or have suggestions, please open an issue at [GitHub Issues](https://github.com/nakita628/wakusei/issues).
+If you find any issues or have suggestions, please open an issue at [GitHub Issues](https://github.com/nakita628/wakusei/issues). To send a pull request, see [CONTRIBUTING.md](https://github.com/nakita628/wakusei/blob/main/CONTRIBUTING.md).
 
 ## License
 
