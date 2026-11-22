@@ -36,7 +36,7 @@ Before opening a PR, `pnpm check` and `pnpm test` must both pass; CI runs the sa
 
 ## Coding rules
 
-The rules live in `.cursor/rules/*.mdc`, and most are enforced by `pnpm check` (the `lint` section of `packages/wakusei/vite.config.ts` and the oxlint plugin in `packages/wakusei/lint/`). Read the ones for the files you touch: `project.mdc` (always), `architecture.mdc`, `effect.mdc`, `typescript.mdc`, `testing.mdc`, `docs.mdc` and `ci-config.mdc`. In short:
+Most rules are enforced by `pnpm check`: the `lint` section of `packages/wakusei/vite.config.ts`, whose comments explain each choice, and the oxlint plugin in `packages/wakusei/lint/`. Beyond those:
 
 - Implement it the way the surrounding code is written; do not introduce a second idiom.
 - Failures are typed Effect errors, never throws.
