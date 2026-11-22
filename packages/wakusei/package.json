@@ -47,13 +47,13 @@
     "coverage": "vp test --coverage"
   },
   "dependencies": {
-    "@effect/platform-node": "4.0.5",
-    "effect": "4.0.5",
-    "oas-truth": "^0.5.1",
-    "oxc-parser": "^0.155.0",
-    "oxfmt": "^0.74.0"
+    "@effect/platform-node": "4.1.2",
+    "effect": "4.1.2",
+    "oas-truth": "^0.6.1",
+    "oxc-parser": "^0.159.0",
+    "oxfmt": "^0.79.0"
   },
   "devDependencies": {
-    "@types/node": "^26.6.5"
+    "@types/node": "^26.6.6"
   }
 }

@@ -133,8 +133,9 @@ kind imports another. The specifier follows from where the files are written, ne
   through `makeSchemaVarName(ref, makeSchemaIdentifiers(schemas))`, the same collision map the
   declarations use.
 - Query and path parameters are coerced by schema-truth's `paramIn`
-  (`adapter.toExpression(schema, paramIn, options)`): zod `z.coerce`, valibot
-  `v.transform(Number)`, arktype `.pipe`. The parameter's `style`, `explode` and
+  (`adapter.toExpression(schema, paramIn, options)`): an integer is checked against
+  `/^-?(?:0|[1-9]\d*)$/` before `Number`, as zod `.regex().transform().pipe()`, valibot
+  `v.regex()` then `v.transform()`, arktype `.pipe`. The parameter's `style`, `explode` and
   `allowEmptyValue` go in `options` (a `style` that fails `isParamStyle` is left out), so
   `form` with `explode: false` reads `1,2,3`.
 - **Never patch oas-truth's output with string edits.** Fix the mistake in oas-truth or

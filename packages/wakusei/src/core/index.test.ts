@@ -150,7 +150,16 @@ import { CreatePostSchema, PostSchema } from '../components'
 
 export const getPosts = os
   .route({ method: 'GET', path: '/posts' })
-  .input(z.object({ limit: z.coerce.number().int().min(1).max(100).exactOptional() }))
+  .input(
+    z.object({
+      limit: z
+        .string()
+        .regex(/^-?(?:0|[1-9]\\d*)$/)
+        .transform((val) => Number(val))
+        .pipe(z.number().int().min(1).max(100))
+        .exactOptional(),
+    }),
+  )
   .output(z.array(PostSchema))
   .handler(async ({ input }) => {})
 
@@ -162,13 +171,29 @@ export const postPosts = os
 
 export const getPostsPostId = os
   .route({ method: 'GET', path: '/posts/{postId}' })
-  .input(z.object({ postId: z.coerce.number().int().min(1) }))
+  .input(
+    z.object({
+      postId: z
+        .string()
+        .regex(/^-?(?:0|[1-9]\\d*)$/)
+        .transform((val) => Number(val))
+        .pipe(z.number().int().min(1)),
+    }),
+  )
   .output(PostSchema)
   .handler(async ({ input }) => {})
 
 export const deletePostsPostId = os
   .route({ method: 'DELETE', path: '/posts/{postId}', successStatus: 204 })
-  .input(z.object({ postId: z.coerce.number().int().min(1) }))
+  .input(
+    z.object({
+      postId: z
+        .string()
+        .regex(/^-?(?:0|[1-9]\\d*)$/)
+        .transform((val) => Number(val))
+        .pipe(z.number().int().min(1)),
+    }),
+  )
   .handler(async ({ input }) => {})
 `
 
@@ -241,7 +266,8 @@ export const getPosts = os
       limit: v.optional(
         v.pipe(
           v.string(),
-          v.transform(Number),
+          v.regex(/^-?(?:0|[1-9]\\d*)$/),
+          v.transform((input) => Number(input)),
           v.number(),
           v.safeInteger(),
           v.minValue(1),
@@ -263,7 +289,14 @@ export const getPostsPostId = os
   .route({ method: 'GET', path: '/posts/{postId}' })
   .input(
     v.object({
-      postId: v.pipe(v.string(), v.transform(Number), v.number(), v.safeInteger(), v.minValue(1)),
+      postId: v.pipe(
+        v.string(),
+        v.regex(/^-?(?:0|[1-9]\\d*)$/),
+        v.transform((input) => Number(input)),
+        v.number(),
+        v.safeInteger(),
+        v.minValue(1),
+      ),
     }),
   )
   .output(PostSchema)
@@ -273,7 +306,14 @@ export const deletePostsPostId = os
   .route({ method: 'DELETE', path: '/posts/{postId}', successStatus: 204 })
   .input(
     v.object({
-      postId: v.pipe(v.string(), v.transform(Number), v.number(), v.safeInteger(), v.minValue(1)),
+      postId: v.pipe(
+        v.string(),
+        v.regex(/^-?(?:0|[1-9]\\d*)$/),
+        v.transform((input) => Number(input)),
+        v.number(),
+        v.safeInteger(),
+        v.minValue(1),
+      ),
     }),
   )
   .handler(async ({ input }) => {})
@@ -292,7 +332,7 @@ export const getPosts = os
     type({
       'limit?': type('string')
         .pipe((data, ctx) => {
-          const value = Number(data)
+          const value = /^-?(?:0|[1-9]\\d*)$/.test(data) ? Number(data) : Number.NaN
           return Number.isSafeInteger(value) ? value : ctx.error('an integer')
         })
         .to('number.integer >= 1 & number.integer <= 100'),
@@ -313,7 +353,7 @@ export const getPostsPostId = os
     type({
       postId: type('string')
         .pipe((data, ctx) => {
-          const value = Number(data)
+          const value = /^-?(?:0|[1-9]\\d*)$/.test(data) ? Number(data) : Number.NaN
           return Number.isSafeInteger(value) ? value : ctx.error('an integer')
         })
         .to('number.integer >= 1'),
@@ -328,7 +368,7 @@ export const deletePostsPostId = os
     type({
       postId: type('string')
         .pipe((data, ctx) => {
-          const value = Number(data)
+          const value = /^-?(?:0|[1-9]\\d*)$/.test(data) ? Number(data) : Number.NaN
           return Number.isSafeInteger(value) ? value : ctx.error('an integer')
         })
         .to('number.integer >= 1'),
@@ -380,7 +420,16 @@ import { CreatePostSchema, PostSchema } from './components'
 export const contract = {
   getPosts: oc
     .route({ method: 'GET', path: '/posts' })
-    .input(z.object({ limit: z.coerce.number().int().min(1).max(100).exactOptional() }))
+    .input(
+      z.object({
+        limit: z
+          .string()
+          .regex(/^-?(?:0|[1-9]\\d*)$/)
+          .transform((val) => Number(val))
+          .pipe(z.number().int().min(1).max(100))
+          .exactOptional(),
+      }),
+    )
     .output(z.array(PostSchema)),
   postPosts: oc
     .route({ method: 'POST', path: '/posts', successStatus: 201 })
@@ -388,11 +437,27 @@ export const contract = {
     .output(PostSchema),
   getPostsPostId: oc
     .route({ method: 'GET', path: '/posts/{postId}' })
-    .input(z.object({ postId: z.coerce.number().int().min(1) }))
+    .input(
+      z.object({
+        postId: z
+          .string()
+          .regex(/^-?(?:0|[1-9]\\d*)$/)
+          .transform((val) => Number(val))
+          .pipe(z.number().int().min(1)),
+      }),
+    )
     .output(PostSchema),
   deletePostsPostId: oc
     .route({ method: 'DELETE', path: '/posts/{postId}', successStatus: 204 })
-    .input(z.object({ postId: z.coerce.number().int().min(1) })),
+    .input(
+      z.object({
+        postId: z
+          .string()
+          .regex(/^-?(?:0|[1-9]\\d*)$/)
+          .transform((val) => Number(val))
+          .pipe(z.number().int().min(1)),
+      }),
+    ),
 }
 `)
   })
@@ -654,7 +719,11 @@ export const NotFoundResponse = {
 `)
     expect(read('src/components/parameters.ts')).toBe(`import * as z from 'zod'
 
-export const LimitParamsSchema = z.coerce.number().int()
+export const LimitParamsSchema = z
+  .string()
+  .regex(/^-?(?:0|[1-9]\\d*)$/)
+  .transform((val) => Number(val))
+  .pipe(z.number().int())
 `)
     expect(read('src/components/index.ts')).toBe(
       "export * from './parameters'\nexport * from './responses'\nexport * from './schemas'\n",
@@ -799,7 +868,11 @@ export const NotFoundResponse = {
 `)
     expect(read('src/parameters/limit.ts')).toBe(`import * as z from 'zod'
 
-export const LimitParamsSchema = z.coerce.number().int()
+export const LimitParamsSchema = z
+  .string()
+  .regex(/^-?(?:0|[1-9]\\d*)$/)
+  .transform((val) => Number(val))
+  .pipe(z.number().int())
 
 export type LimitParamsSchema = z.infer<typeof LimitParamsSchema>
 `)
@@ -833,7 +906,11 @@ export const NotFoundResponse = {
 `)
     expect(read('src/parameters.ts')).toBe(`import * as z from 'zod'
 
-export const LimitParamsSchema = z.coerce.number().int()
+export const LimitParamsSchema = z
+  .string()
+  .regex(/^-?(?:0|[1-9]\\d*)$/)
+  .transform((val) => Number(val))
+  .pipe(z.number().int())
 `)
   })
 
@@ -890,7 +967,7 @@ describe('merge', () => {
     )
     await generate({})
     const second = read('src/handlers/posts.ts')
-    expect(second.split('\n').slice(0, 15)).toStrictEqual([
+    expect(second.split('\n').slice(0, 24)).toStrictEqual([
       "import { os } from '@orpc/server'",
       "import * as z from 'zod'",
       "import { CreatePostSchema, PostSchema } from '../components'",
@@ -899,7 +976,16 @@ describe('merge', () => {
       'export const getPosts = os',
       '  .use(authMiddleware)',
       "  .route({ method: 'GET', path: '/posts' })",
-      '  .input(z.object({ limit: z.coerce.number().int().min(1).max(100).exactOptional() }))',
+      '  .input(',
+      '    z.object({',
+      '      limit: z',
+      '        .string()',
+      '        .regex(/^-?(?:0|[1-9]\\d*)$/)',
+      '        .transform((val) => Number(val))',
+      '        .pipe(z.number().int().min(1).max(100))',
+      '        .exactOptional(),',
+      '    }),',
+      '  )',
       '  .output(z.array(PostSchema))',
       '  .handler(async ({ input }) => {',
       '    return []',

@@ -117,7 +117,7 @@ describe('makeServerProcedures', () => {
   it('chains route, input, output and a stub handler per operation', () => {
     expect(makeServerProcedures(operations, context).split('\n\n')).toStrictEqual([
       'export const get=os.route({method:"GET",path:"/",successDescription:"It\'s \\"ok\\"\\nreally"}).handler(async({input})=>{})',
-      'export const patchUsersId=os.route({method:"PATCH",path:"/users/{id}",tags:["users"],summary:"Patch",deprecated:true,successStatus:202,successDescription:"Accepted for processing"}).input(z.object({id:z.coerce.number().int(),"dry-run":z.stringbool(),filter:z.object({q:z.string().exactOptional()}).exactOptional(),name:TagSchema.exactOptional()})).output(PetSchema).handler(async({input})=>{})',
+      'export const patchUsersId=os.route({method:"PATCH",path:"/users/{id}",tags:["users"],summary:"Patch",deprecated:true,successStatus:202,successDescription:"Accepted for processing"}).input(z.object({id:z.string().regex(/^-?(?:0|[1-9]\\d*)$/).transform((val)=>Number(val)).pipe(z.number().int()),"dry-run":z.stringbool(),filter:z.object({q:z.string().exactOptional()}).exactOptional(),name:TagSchema.exactOptional()})).output(PetSchema).handler(async({input})=>{})',
       'export const postItems=os.route({method:"POST",path:"/items",successStatus:201}).handler(async({input})=>{})',
       'export const deleteItems=os.route({method:"DELETE",path:"/items",successStatus:204}).handler(async({input})=>{})',
       'export const postNewPet=os.route({method:"POST",path:"/newPet"}).input(PetSchema).handler(async({input})=>{})',
@@ -148,7 +148,7 @@ describe('makeServerProcedures', () => {
       },
     } as never)
     expect(makeServerProcedures(styled, context)).toBe(
-      'export const getItems=os.route({method:"GET",path:"/items"}).input(z.object({ids:z.preprocess((val)=>{if(typeof val!==\'string\')return val;const text=val;return (text===\'\'?[]:text.split(","))},z.preprocess((val)=>(val===undefined||Array.isArray(val)?val:[val]),z.array(z.coerce.number().int()))).exactOptional(),q:z.preprocess((val)=>(val===\'\'?undefined:val),z.string()).exactOptional(),tag:z.string().exactOptional()})).handler(async({input})=>{})',
+      'export const getItems=os.route({method:"GET",path:"/items"}).input(z.object({ids:z.preprocess((val)=>{if(typeof val!==\'string\')return val;const text=val;return (text===\'\'?[]:text.split(","))},z.preprocess((val)=>(val===undefined||Array.isArray(val)?val:[val]),z.array(z.string().regex(/^-?(?:0|[1-9]\\d*)$/).transform((val)=>Number(val)).pipe(z.number().int())))).exactOptional(),q:z.preprocess((val)=>(val===\'\'?undefined:val),z.string()).exactOptional(),tag:z.string().exactOptional()})).handler(async({input})=>{})',
     )
   })
 })
@@ -158,13 +158,13 @@ describe('makeContract', () => {
     expect(
       makeContract(operations.slice(1, 2), { ...context, lib: 'valibot', prefix: '/v1' }),
     ).toBe(
-      'export const contract={patchUsersId:oc.route({method:"PATCH",path:"/v1/users/{id}",tags:["users"],summary:"Patch",deprecated:true,successStatus:202,successDescription:"Accepted for processing"}).input(v.object({id:v.pipe(v.string(),v.transform(Number),v.number(),v.safeInteger()),"dry-run":v.pipe(v.string(),v.regex(/^(?:true|1|yes|on|y|enabled|false|0|no|off|n|disabled)$/i),v.transform((input)=>/^(?:true|1|yes|on|y|enabled)$/i.test(input))),filter:v.optional(v.partial(v.object({q:v.string()}))),name:v.optional(TagSchema)})).output(PetSchema)}',
+      'export const contract={patchUsersId:oc.route({method:"PATCH",path:"/v1/users/{id}",tags:["users"],summary:"Patch",deprecated:true,successStatus:202,successDescription:"Accepted for processing"}).input(v.object({id:v.pipe(v.string(),v.regex(/^-?(?:0|[1-9]\\d*)$/),v.transform((input)=>Number(input)),v.number(),v.safeInteger()),"dry-run":v.pipe(v.string(),v.regex(/^(?:true|1|yes|on|y|enabled|false|0|no|off|n|disabled)$/i),v.transform((input)=>/^(?:true|1|yes|on|y|enabled)$/i.test(input))),filter:v.optional(v.partial(v.object({q:v.string()}))),name:v.optional(TagSchema)})).output(PetSchema)}',
     )
   })
 
   it('marks optional fields in the key for arktype', () => {
     expect(makeContract(operations.slice(1, 2), { ...context, lib: 'arktype' })).toBe(
-      'export const contract={patchUsersId:oc.route({method:"PATCH",path:"/users/{id}",tags:["users"],summary:"Patch",deprecated:true,successStatus:202,successDescription:"Accepted for processing"}).input(type({id:type("string").pipe((data, ctx) => { const value = Number(data); return Number.isSafeInteger(value) ? value : ctx.error("an integer") }),"dry-run":type(/^(?:true|1|yes|on|y|enabled|false|0|no|off|n|disabled)$/i).pipe((data) => /^(?:true|1|yes|on|y|enabled)$/i.test(data)),"filter?":type({"q?":"string"}),"name?":TagSchema})).output(PetSchema)}',
+      'export const contract={patchUsersId:oc.route({method:"PATCH",path:"/users/{id}",tags:["users"],summary:"Patch",deprecated:true,successStatus:202,successDescription:"Accepted for processing"}).input(type({id:type("string").pipe((data, ctx) => { const value = /^-?(?:0|[1-9]\\d*)$/.test(data) ? Number(data) : Number.NaN; return Number.isSafeInteger(value) ? value : ctx.error("an integer") }),"dry-run":type(/^(?:true|1|yes|on|y|enabled|false|0|no|off|n|disabled)$/i).pipe((data) => /^(?:true|1|yes|on|y|enabled)$/i.test(data)),"filter?":type({"q?":"string"}),"name?":TagSchema})).output(PetSchema)}',
     )
   })
 
