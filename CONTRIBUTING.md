@@ -66,6 +66,15 @@ Releases are automatic. Never bump `version` or push a `v*` tag by hand.
 1. When a `feat`, `fix` or `perf` lands on `main`, the Release PR workflow (`.github/workflows/release-please.yml`) opens `chore: bump version to <version>` and merges it.
 2. `.github/workflows/release.yml` then runs Test, tags `v<version>`, publishes to npm through Trusted Publishing and writes the GitHub Release.
 
+### Repository settings
+
+The workflows and the Issue loop rely on settings that live outside the repository. Keep them as listed:
+
+- **Pull requests**: squash merging only (merge commits and rebase merging off), the default squash commit message set to "Pull request title and description", and "Automatically delete head branches" on. The squash commit then carries the PR title whatever the branch's commits say, so the title alone decides the release.
+- **Actions → General → Workflow permissions**: "Read repository contents and packages permissions", with "Allow GitHub Actions to create and approve pull requests" on, so the Release PR workflow can open and merge the bump pull request.
+- **Environments → `release`**: deployments limited to the `main` branch. npm Trusted Publishing trusts `release.yml` in this environment, so no other branch can publish.
+- **Labels**: `autorelease: pending` and `autorelease: tagged` for release-please, and `claude` to hand an issue to the Issue loop.
+
 ## License
 
 By contributing, you agree that your contributions will be licensed under the [MIT License](LICENSE).
