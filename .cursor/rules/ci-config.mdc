@@ -13,7 +13,11 @@ alwaysApply: false
   (which runs the build) → `vp run check`, which ends in `pnpm lint` and so runs every linter. A
   new check goes into the root `package.json` scripts, so local and CI cannot disagree about what
   "clean" means.
-- `release.yml` runs after Test succeeds on a push to `main`; see Releasing.
+- `test.yml` can also be started by hand (`workflow_dispatch`) and called by `release.yml`
+  (`workflow_call`).
+- `release-please.yml` (Release PR) runs on every push to `main`, after each `release` run and by
+  hand; `release.yml` runs after Test succeeds on a push to `main`, or when started by hand on
+  `main`. See Releasing.
 - **Actions are pinned to a commit digest with the tag kept as a comment**:
   `uses: actions/checkout@3d3c42e… # v7.0.1`. A floating tag is a mutable dependency with access to
   the job — never introduce one. Resolve a tag with
@@ -120,8 +124,21 @@ PR; the `effect` group is always merged by hand, together with the override in
 
 ## Releasing
 
-Releases are CI's job, driven by `packages/wakusei/package.json`. `release.yml` runs after Test
-passes on a push to `main` and, from the exact commit Test ran on:
+Releases are CI's job, driven by the Conventional Commits on `main`.
+
+`release-please.yml` runs [release-please](https://github.com/googleapis/release-please) with
+`release-please-config.json`: from the commits since the last tag, `feat` raises the minor version,
+`fix` and `perf` the patch, and a breaking change the minor while the version is `0.x`. It opens
+`chore: bump version to <version>` (bumping `packages/wakusei/package.json` and
+`.release-please-manifest.json`), merges it with the workflow's token and starts `release.yml` on
+`main`, since nothing the workflow's token does starts Test. release-please writes no changelog
+and no GitHub Release (`skip-github-release`); `release.yml` does the release, so the workflow
+moves a merged bump PR from `autorelease: pending` to `autorelease: tagged` itself once the
+Release exists. The repository has to let GitHub Actions create pull requests (Settings → Actions
+→ General → Workflow permissions).
+
+`release.yml` runs after Test passes on a push to `main` — or, started by hand on `main`, runs Test
+itself first — and, from the exact commit Test ran on:
 
 1. **check** — stops here when the package is `"private": true` (nothing is tagged or published);
    otherwise reads the version and asks npm whether it is published;
@@ -135,8 +152,8 @@ passes on a push to `main` and, from the exact commit Test ran on:
 
 Rules that follow:
 
-- **To release, bump `version` in its own commit (`chore: release wakusei <version>`), with
-  `pnpm check` and `pnpm test` green, and push to `main`.** Nothing else publishes.
+- **To release, land a `feat`, `fix` or `perf` commit on `main`.** release-please bumps the
+  version; never bump it by hand.
 - **Never `npm publish` / `pnpm publish` by hand, and never create or move a `v*` tag by hand.**
 - Never reuse or roll back a published version; to fix a release, bump again.
 - If a job fails (an npm outage, a Trusted Publisher mismatch), fix the cause and re-run the failed

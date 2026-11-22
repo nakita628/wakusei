@@ -1,0 +1,14 @@
+{
+  "$schema": "https://raw.githubusercontent.com/googleapis/release-please/v17.6.0/schemas/config.json",
+  "packages": {
+    "packages/wakusei": {
+      "release-type": "node",
+      "package-name": "wakusei",
+      "include-component-in-tag": false,
+      "bump-minor-pre-major": true,
+      "skip-changelog": true,
+      "pull-request-title-pattern": "chore: bump version to ${version}",
+      "pull-request-header": "Merging this pull request releases wakusei: once Test passes on main, release.yml tags the commit, publishes it to npm and writes the GitHub Release."
+    }
+  }
+}

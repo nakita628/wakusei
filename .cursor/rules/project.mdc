@@ -47,7 +47,10 @@ scripts/typespec.ts            fails when the @typespec/* packages in pnpm-lock.
 scripts/actionlint.ts          downloads a pinned actionlint, verifies its checksum, runs it
 scripts/zizmor.ts              downloads a pinned zizmor (workflow security audit), verifies it, runs it
 .github/workflows/test.yml     Test: build, unit tests, the test/ suite, `vp run check` (every linter)
+.github/workflows/release-please.yml  Release PR: opens the version bump from Conventional Commits and merges it
 .github/workflows/release.yml  after Test on main: tag, npm publish, GitHub release (inert while private)
+release-please-config.json     release-please: how commits map to the version (.release-please-manifest.json beside it)
+CONTRIBUTING.md                how to contribute: setup, commands, commits, pull requests, releases
 .github/actionlint.yml         actionlint messages excused per file, each with its reason
 .github/zizmor.yml             zizmor findings excused, each with its reason
 .github/ISSUE_TEMPLATE/        bug report and feature request; pull_request_template.md beside it
@@ -117,10 +120,11 @@ which part.
   same one in `pnpm-workspace.yaml`. They move together, in one change.
 - **The C-layer `x-*` extensions (code injection) stay unsupported.** `unsafeCodeExtensions` is
   never passed to schema-truth. See the architecture rule before touching vendor extensions.
-- **Never bump `version` in `packages/wakusei/package.json` or drop its `"private": true`** unless
-  a release was asked for: pushing a new version to `main` is what publishes it. Never
-  `npm publish`, `pnpm publish` or push a `v*` tag by hand, and never rename `release.yml` or its
-  `release` environment without the matching npm Trusted Publisher change (see the CI rule).
+- **Never bump `version` in `packages/wakusei/package.json` or `.release-please-manifest.json`,
+  and never drop `"private": true`, by hand**: release-please bumps both from the Conventional
+  Commits on `main`, and a new version on `main` is what publishes it. Never `npm publish`,
+  `pnpm publish` or push a `v*` tag by hand, and never rename `release.yml` or its `release`
+  environment without the matching npm Trusted Publisher change (see the CI rule).
 
 ## Working order
 
@@ -135,7 +139,8 @@ which part.
 
 - The owner has authorized committing **directly to `main`** and pushing once `pnpm check` and
   `pnpm test` are green. Never force-push and never rewrite pushed history.
-- One logical change per commit. The subject follows the conventional form,
+- One logical change per commit. The subject follows the conventional form — it decides the
+  release: `feat` raises the minor version, `fix` and `perf` the patch, anything else none —
   `type(scope): imperative summary` — `fix(vite-plugin): keep hand-written handlers when
   regenerating`, `ci: …`, `chore: …`, `docs: …`, `refactor: …`. The body explains why.
 - Do not commit generated output, secrets or local tooling files.
