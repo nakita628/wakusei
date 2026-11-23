@@ -143,10 +143,26 @@ export function makeOperations(openapi: OpenAPI) {
   ]
 }
 
-/** `/posts/{postId}` → `posts`; a path that starts with a parameter (or `/`) → `root`. */
-function makeResourceName(path: string) {
+/**
+ * The first segment of a path in kebab case, the base name of its handler file: every run of
+ * what is no letter, mark or digit (in any script, read as NFC) is a word break, and so is a change from lower to
+ * upper case, a run of capitals followed by a lowercase letter ending before its last capital.
+ * `/realTimeEvents` → `real-time-events`, `/user_profiles` → `user-profiles`,
+ * `/userAPIKeys` → `user-api-keys`, `/ユーザー` → `ユーザー`; a path that starts with a parameter (or
+ * `/`) → `root`. `index` is the barrel, so a resource of that name → `index-resource`.
+ */
+export function makeResourceName(path: string) {
   const first = path.split('/').find(Boolean)
-  return !first || first.startsWith('{') ? 'root' : first
+  if (!first || first.startsWith('{')) return 'root'
+  const name = first
+    .normalize('NFC')
+    .replaceAll(/[^\p{L}\p{M}\p{N}]+/gu, '-')
+    .replaceAll(/([\p{Ll}\p{N}])(\p{Lu})/gu, '$1-$2')
+    .replaceAll(/(\p{Lu})(\p{Lu}\p{Ll})/gu, '$1-$2')
+    .replaceAll(/^-+|-+$/gu, '')
+    .toLowerCase()
+  if (name === '') return 'root'
+  return name === 'index' ? 'index-resource' : name
 }
 
 /** Operations grouped by resource: one handler file per group. */

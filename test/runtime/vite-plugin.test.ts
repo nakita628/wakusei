@@ -39,7 +39,7 @@ describe('wakuseiVite in a Vite dev server', () => {
         { timeout: 60_000 },
       )
       expect(readFileSync(handlersIndex, 'utf8')).toBe(
-        "export * from './postPublished'\nexport * from './posts'\nexport * from './tree'\nexport * from './users'\n",
+        "export * from './post-published'\nexport * from './posts'\nexport * from './tree'\nexport * from './users'\n",
       )
     } finally {
       await server.close()
