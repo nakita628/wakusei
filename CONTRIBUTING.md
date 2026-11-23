@@ -55,7 +55,7 @@ Commit subjects and PR titles follow [Conventional Commits](https://www.conventi
 | `feat!:` / `fix!:` or a `BREAKING CHANGE:` footer  | minor while the version is `0.x` |
 | `refactor`, `docs`, `test`, `build`, `ci`, `chore` | none                             |
 
-Scopes: `schemas`, `components`, `procedures`, `contract`, `merge`, `config`, `cli`, `vite-plugin`, `test`.
+Scopes: `schemas`, `components`, `procedures`, `contract`, `merge`, `config`, `cli`, `vite-plugin`, `test`. The PR title workflow (`.github/workflows/pr-title.yml`) fails a title of any other shape.
 
 Fill in `.github/pull_request_template.md`, and link the issue with `Closes #<number>`.
 
