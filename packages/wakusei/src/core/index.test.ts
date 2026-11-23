@@ -409,6 +409,113 @@ export const deletePostsPostId = os
   })
 })
 
+describe('handler file names', () => {
+  const KEBAB_SPEC = `
+openapi: 3.1.0
+info:
+  title: Example
+  version: 1.0.0
+paths:
+  /realTimeEvents:
+    get:
+      responses:
+        "200":
+          description: OK
+  /user_profiles/{id}:
+    get:
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+  /userAPIKeys:
+    get:
+      responses:
+        "200":
+          description: OK
+`
+
+  beforeEach(() => {
+    fs.writeFileSync('kebab.yaml', KEBAB_SPEC)
+  })
+
+  it('names each handler file after the first path segment in kebab case', async () => {
+    await generate({ input: 'kebab.yaml' })
+    expect(listFiles('src/handlers')).toStrictEqual([
+      'index.ts',
+      'real-time-events.ts',
+      'user-api-keys.ts',
+      'user-profiles.ts',
+    ])
+    expect(read('src/handlers/index.ts')).toBe(
+      "export * from './real-time-events'\nexport * from './user-api-keys'\nexport * from './user-profiles'\n",
+    )
+    expect(read('src/handlers/real-time-events.ts')).toBe(`import { os } from '@orpc/server'
+
+export const getRealTimeEvents = os
+  .route({ method: 'GET', path: '/realTimeEvents' })
+  .handler(async ({ input }) => {})
+`)
+  })
+
+  it('keeps an implementation in a kebab-case file on a re-run', async () => {
+    await generate({ input: 'kebab.yaml' })
+    fs.writeFileSync(
+      'src/handlers/real-time-events.ts',
+      read('src/handlers/real-time-events.ts').replace(
+        'async ({ input }) => {}',
+        'async ({ input }) => {\n    return []\n  }',
+      ),
+    )
+    await generate({ input: 'kebab.yaml' })
+    expect(read('src/handlers/real-time-events.ts')).toContain('return []')
+    expect(listFiles('src/handlers')).toContain('real-time-events.ts')
+  })
+
+  it('merges into an existing file named in another case, keeping its name', async () => {
+    fs.mkdirSync('src/handlers', { recursive: true })
+    fs.writeFileSync(
+      'src/handlers/realTimeEvents.ts',
+      "export const getRealTimeEvents = os.handler(async ({ input }) => {\n  return 'kept'\n})\n",
+    )
+    fs.writeFileSync(
+      'src/handlers/user_profiles.ts',
+      "export const getUserProfilesId = os.handler(async ({ input }) => {\n  return 'kept'\n})\n",
+    )
+    await generate({ input: 'kebab.yaml' })
+    expect(listFiles('src/handlers')).toStrictEqual([
+      'index.ts',
+      'realTimeEvents.ts',
+      'user-api-keys.ts',
+      'user_profiles.ts',
+    ])
+    expect(read('src/handlers/realTimeEvents.ts')).toContain("return 'kept'")
+    expect(read('src/handlers/user_profiles.ts')).toContain("return 'kept'")
+    expect(read('src/handlers/index.ts')).toBe(
+      "export * from './realTimeEvents'\nexport * from './user-api-keys'\nexport * from './user_profiles'\n",
+    )
+  })
+
+  it('regenerates a file renamed by hand in place', async () => {
+    await generate({ input: 'kebab.yaml', mode: 'contract', template: {} })
+    fs.renameSync('src/handlers/real-time-events.ts', 'src/handlers/RealTime_Events.ts')
+    await generate({ input: 'kebab.yaml', mode: 'contract', template: {} })
+    expect(listFiles('src/handlers')).toStrictEqual([
+      'RealTime_Events.ts',
+      'index.ts',
+      'user-api-keys.ts',
+      'user-profiles.ts',
+    ])
+    expect(read('src/handlers/RealTime_Events.ts')).toContain(
+      'export const getRealTimeEvents = os.getRealTimeEvents.handler',
+    )
+  })
+})
+
 describe('contract mode', () => {
   it('writes the contract, and no handlers without template', async () => {
     await generate({ mode: 'contract' })

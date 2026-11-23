@@ -222,6 +222,8 @@ Re-running after updating your OpenAPI spec is safe — your hand-written code i
 
 New routes are added as stubs. Deleted routes are removed, and a handler file no route maps to any more is deleted.
 
+Each handler file is named after the first segment of its paths in kebab-case: `/realTimeEvents` and `/realTimeEvents/{id}` go to `real-time-events.ts`, `/user_profiles` to `user-profiles.ts`, and a path that starts with a parameter to `root.ts`. Only the filename changes; the procedures keep their names (`getRealTimeEvents`). An existing file whose name differs from the expected one only in case, `-` and `_` (`realTimeEvents.ts`, `real_time_events.ts`) is the file of that resource: it is merged into, keeps its name and is not deleted, so files are never renamed.
+
 ## Full Config Reference
 
 `mode: 'contract'` writes an `@orpc/contract` router; `template` opts into `implement(contract)` stubs and `client` into a typed client (both rejected in server mode). `components.output` (one aggregate file) is mutually exclusive with the per-type fields (`schemas`, `responses`, ...). Server mode is the one-shot CLI (`wakusei openapi.yaml`) and does not need a config file.

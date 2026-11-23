@@ -143,10 +143,22 @@ export function makeOperations(openapi: OpenAPI) {
   ]
 }
 
-/** `/posts/{postId}` → `posts`; a path that starts with a parameter (or `/`) → `root`. */
+/**
+ * The first segment of a path in kebab case, the base name of its handler file: every run of
+ * what is no letter or digit is a word break, and so is a change of case, an acronym being one
+ * word. `/realTimeEvents` → `real-time-events`, `/user_profiles` → `user-profiles`,
+ * `/userAPIKeys` → `user-api-keys`; a path that starts with a parameter (or `/`) → `root`.
+ */
 function makeResourceName(path: string) {
   const first = path.split('/').find(Boolean)
-  return !first || first.startsWith('{') ? 'root' : first
+  if (!first || first.startsWith('{')) return 'root'
+  const name = first
+    .replaceAll(/[^0-9A-Za-z]+/gu, '-')
+    .replaceAll(/([a-z0-9])([A-Z])/gu, '$1-$2')
+    .replaceAll(/([A-Z])([A-Z][a-z])/gu, '$1-$2')
+    .replaceAll(/^-+|-+$/gu, '')
+    .toLowerCase()
+  return name === '' ? 'root' : name
 }
 
 /** Operations grouped by resource: one handler file per group. */

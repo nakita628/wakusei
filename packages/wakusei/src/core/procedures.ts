@@ -42,23 +42,49 @@ function makeSchemaImports(
     .map((name) => ({ name, from }))
 }
 
+/** A handler file name with case and every character that is no letter or digit ignored. */
+function makeFileKey(file: string) {
+  return path
+    .basename(file, '.ts')
+    .replaceAll(/[^0-9A-Za-z]/gu, '')
+    .toLowerCase()
+}
+
+/**
+ * The file a resource group is written to: the expected `<name>.ts` when it exists, else an
+ * existing file that differs from it only in case, `-` and `_` (`realTimeEvents.ts` or
+ * `real_time_events.ts` for `real-time-events.ts`) and is not another group's expected file,
+ * else the expected name. A project whose files were written under another name keeps them;
+ * nothing is renamed.
+ */
+function resolveHandlerFileName(
+  name: string,
+  existing: readonly string[],
+  claimed: ReadonlySet<string>,
+) {
+  const expected = `${name}.ts`
+  if (existing.includes(expected)) return expected
+  const key = makeFileKey(expected)
+  return existing.find((file) => !claimed.has(file) && makeFileKey(file) === key) ?? expected
+}
+
 /**
  * One merged file per resource group and an `index.ts` barrel. Existing handler bodies
  * survive through `mergeProcedureFile`; `.ts` files no group maps to any more are deleted.
  */
 function writeHandlerFile(
   dir: string,
-  name: string,
+  file: string,
   operations: readonly OperationInfo[],
   makeCode: (operations: readonly OperationInfo[]) => string,
   managed: ReadonlySet<string>,
 ) {
   return Effect.gen(function* () {
-    const file = path.join(dir, `${name}.ts`)
+    const filePath = path.join(dir, file)
     const code = makeCode(operations)
-    const existing = yield* readFile(file)
+    const existing = yield* readFile(filePath)
     const merged = existing === null ? code : mergeProcedureFile(existing, code, managed)
-    yield* emit(merged, dir, file)
+    yield* emit(merged, dir, filePath)
   })
 }
 
@@ -69,23 +95,30 @@ function writeHandlerFiles(
   managed: ReadonlySet<string>,
 ) {
   return Effect.gen(function* () {
-    const names = [...groups.keys()]
+    const existing = (yield* readdir(dir))
+      .filter((entry) => entry.endsWith('.ts') && entry !== 'index.ts')
+      .toSorted()
+    const claimed = new Set([...groups.keys()].map((name) => `${name}.ts`))
+    const files = [...groups].map(
+      ([name, operations]) =>
+        [resolveHandlerFileName(name, existing, claimed), operations] as const,
+    )
     yield* Effect.forEach(
-      groups,
-      ([name, operations]) => writeHandlerFile(dir, name, operations, makeCode, managed),
+      files,
+      ([file, operations]) => writeHandlerFile(dir, file, operations, makeCode, managed),
       { concurrency: EMIT_CONCURRENCY, discard: true },
     )
-    if (names.length > 0) {
-      const barrel = names
+    if (files.length > 0) {
+      const barrel = files
+        .map(([file]) => path.basename(file, '.ts'))
         .toSorted()
         .map((name) => `export*from'./${name}'`)
         .join('\n')
       yield* emit(barrel, dir, path.join(dir, 'index.ts'))
     }
-    const expected = new Set([...names.map((name) => `${name}.ts`), 'index.ts'])
-    const entries = yield* readdir(dir)
+    const expected = new Set(files.map(([file]) => file))
     yield* Effect.forEach(
-      entries.filter((entry) => entry.endsWith('.ts') && !expected.has(entry)),
+      existing.filter((entry) => !expected.has(entry)),
       (entry) => unlink(path.join(dir, entry)),
       { concurrency: EMIT_CONCURRENCY, discard: true },
     )
