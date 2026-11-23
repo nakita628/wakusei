@@ -46,31 +46,44 @@ function makeSchemaImports(
 function makeFileKey(file: string) {
   return path
     .basename(file, '.ts')
-    .replaceAll(/[^0-9A-Za-z]/gu, '')
+    .replaceAll(/[^\p{L}\p{N}]/gu, '')
     .toLowerCase()
 }
 
 /**
  * The file a resource group is written to: the expected `<name>.ts` when it exists, else an
  * existing file that differs from it only in case, `-` and `_` (`realTimeEvents.ts` or
- * `real_time_events.ts` for `real-time-events.ts`) and is not another group's expected file,
- * else the expected name. A project whose files were written under another name keeps them;
- * nothing is renamed.
+ * `real_time_events.ts` for `real-time-events.ts`) and is not taken by another group, else the
+ * expected name. A project whose files were written under another name keeps them; nothing is
+ * renamed.
  */
 function resolveHandlerFileName(
   name: string,
   existing: readonly string[],
-  claimed: ReadonlySet<string>,
+  taken: ReadonlySet<string>,
 ) {
   const expected = `${name}.ts`
   if (existing.includes(expected)) return expected
   const key = makeFileKey(expected)
-  return existing.find((file) => !claimed.has(file) && makeFileKey(file) === key) ?? expected
+  return existing.find((file) => !taken.has(file) && makeFileKey(file) === key) ?? expected
+}
+
+/** Each group paired with its file, no existing file handed to two groups. */
+function resolveHandlerFiles(
+  groups: ReadonlyMap<string, readonly OperationInfo[]>,
+  existing: readonly string[],
+) {
+  const taken = new Set([...groups.keys()].map((name) => `${name}.ts`))
+  return [...groups].map(([name, operations]) => {
+    const file = resolveHandlerFileName(name, existing, taken)
+    taken.add(file)
+    return [file, operations] as const
+  })
 }
 
 /**
  * One merged file per resource group and an `index.ts` barrel. Existing handler bodies
- * survive through `mergeProcedureFile`; `.ts` files no group maps to any more are deleted.
+ * survive through `mergeProcedureFile`; `.ts` files no group's name matches any more are deleted.
  */
 function writeHandlerFile(
   dir: string,
@@ -98,11 +111,7 @@ function writeHandlerFiles(
     const existing = (yield* readdir(dir))
       .filter((entry) => entry.endsWith('.ts') && entry !== 'index.ts')
       .toSorted()
-    const claimed = new Set([...groups.keys()].map((name) => `${name}.ts`))
-    const files = [...groups].map(
-      ([name, operations]) =>
-        [resolveHandlerFileName(name, existing, claimed), operations] as const,
-    )
+    const files = resolveHandlerFiles(groups, existing)
     yield* Effect.forEach(
       files,
       ([file, operations]) => writeHandlerFile(dir, file, operations, makeCode, managed),
@@ -116,9 +125,11 @@ function writeHandlerFiles(
         .join('\n')
       yield* emit(barrel, dir, path.join(dir, 'index.ts'))
     }
-    const expected = new Set(files.map(([file]) => file))
+    // A second file of a group (`userProfiles.ts` beside `user_profiles.ts`) may still hold
+    // hand-written code, so only a file no group's name matches is deleted.
+    const keys = new Set([...groups.keys()].map(makeFileKey))
     yield* Effect.forEach(
-      existing.filter((entry) => !expected.has(entry)),
+      existing.filter((entry) => !keys.has(makeFileKey(entry))),
       (entry) => unlink(path.join(dir, entry)),
       { concurrency: EMIT_CONCURRENCY, discard: true },
     )

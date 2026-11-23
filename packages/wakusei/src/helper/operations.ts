@@ -145,20 +145,23 @@ export function makeOperations(openapi: OpenAPI) {
 
 /**
  * The first segment of a path in kebab case, the base name of its handler file: every run of
- * what is no letter or digit is a word break, and so is a change of case, an acronym being one
- * word. `/realTimeEvents` → `real-time-events`, `/user_profiles` → `user-profiles`,
- * `/userAPIKeys` → `user-api-keys`; a path that starts with a parameter (or `/`) → `root`.
+ * what is no letter or digit (in any script) is a word break, and so is a change from lower to
+ * upper case, a run of capitals followed by a lowercase letter ending before its last capital.
+ * `/realTimeEvents` → `real-time-events`, `/user_profiles` → `user-profiles`,
+ * `/userAPIKeys` → `user-api-keys`, `/ユーザー` → `ユーザー`; a path that starts with a parameter (or
+ * `/`) → `root`. `index` is the barrel, so a resource of that name → `index-resource`.
  */
 function makeResourceName(path: string) {
   const first = path.split('/').find(Boolean)
   if (!first || first.startsWith('{')) return 'root'
   const name = first
-    .replaceAll(/[^0-9A-Za-z]+/gu, '-')
-    .replaceAll(/([a-z0-9])([A-Z])/gu, '$1-$2')
-    .replaceAll(/([A-Z])([A-Z][a-z])/gu, '$1-$2')
+    .replaceAll(/[^\p{L}\p{N}]+/gu, '-')
+    .replaceAll(/([\p{Ll}\p{N}])(\p{Lu})/gu, '$1-$2')
+    .replaceAll(/(\p{Lu})(\p{Lu}\p{Ll})/gu, '$1-$2')
     .replaceAll(/^-+|-+$/gu, '')
     .toLowerCase()
-  return name === '' ? 'root' : name
+  if (name === '') return 'root'
+  return name === 'index' ? 'index-resource' : name
 }
 
 /** Operations grouped by resource: one handler file per group. */

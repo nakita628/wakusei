@@ -222,7 +222,7 @@ Re-running after updating your OpenAPI spec is safe — your hand-written code i
 
 New routes are added as stubs. Deleted routes are removed, and a handler file no route maps to any more is deleted.
 
-Each handler file is named after the first segment of its paths in kebab-case: `/realTimeEvents` and `/realTimeEvents/{id}` go to `real-time-events.ts`, `/user_profiles` to `user-profiles.ts`, and a path that starts with a parameter to `root.ts`. Only the filename changes; the procedures keep their names (`getRealTimeEvents`). An existing file whose name differs from the expected one only in case, `-` and `_` (`realTimeEvents.ts`, `real_time_events.ts`) is the file of that resource: it is merged into, keeps its name and is not deleted, so files are never renamed.
+Each handler file is named after the first segment of its paths in kebab-case: `/realTimeEvents` and `/realTimeEvents/{id}` go to `real-time-events.ts`, `/user_profiles` to `user-profiles.ts`, a path that starts with a parameter to `root.ts`, and `/index` to `index-resource.ts`, since `index.ts` is the barrel. Only the filename changes; the procedures keep their names (`getRealTimeEvents`). An existing file whose name differs from the expected one only in case, `-` and `_` (`realTimeEvents.ts`, `real_time_events.ts`) is the file of that resource: it is merged into, keeps its name and is not deleted, so files are never renamed. When several existing files match one resource, the expected name or else the first in sort order is merged into, and the others are left as they are, unexported.
 
 ## Full Config Reference
 

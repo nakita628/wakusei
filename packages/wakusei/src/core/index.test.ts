@@ -500,6 +500,52 @@ export const getRealTimeEvents = os
     )
   })
 
+  it('reserves index for the barrel and keeps letters of any script', async () => {
+    fs.writeFileSync(
+      'kebab.yaml',
+      KEBAB_SPEC.replace(
+        'paths:\n',
+        'paths:\n  /Index:\n    get:\n      responses:\n        "200":\n          description: OK\n  /ユーザー:\n    get:\n      responses:\n        "200":\n          description: OK\n  /café:\n    get:\n      responses:\n        "200":\n          description: OK\n',
+      ),
+    )
+    await generate({ input: 'kebab.yaml' })
+    expect(listFiles('src/handlers')).toStrictEqual([
+      'café.ts',
+      'index-resource.ts',
+      'index.ts',
+      'real-time-events.ts',
+      'user-api-keys.ts',
+      'user-profiles.ts',
+      'ユーザー.ts',
+    ])
+    expect(read('src/handlers/index.ts')).toContain("export * from './index-resource'")
+  })
+
+  it('hands an existing file to one group only, and keeps a second file of a group', async () => {
+    fs.writeFileSync(
+      'kebab.yaml',
+      KEBAB_SPEC.replace(
+        'paths:\n',
+        'paths:\n  /ab_c:\n    get:\n      responses:\n        "200":\n          description: OK\n  /a_bc:\n    get:\n      responses:\n        "200":\n          description: OK\n',
+      ),
+    )
+    fs.mkdirSync('src/handlers', { recursive: true })
+    fs.writeFileSync('src/handlers/ab_c.ts', "export const getAbC = 'kept ab_c'\n")
+    fs.writeFileSync('src/handlers/a_bc.ts', "export const getABc = 'kept a_bc'\n")
+    fs.writeFileSync('src/handlers/realTimeEvents.ts', 'export const getRealTimeEvents = 1\n')
+    fs.writeFileSync('src/handlers/real_time_events.ts', "export const helper = 'kept'\n")
+    await generate({ input: 'kebab.yaml' })
+    const files = listFiles('src/handlers')
+    expect(files).toContain('ab_c.ts')
+    expect(files).toContain('a_bc.ts')
+    expect(files).toContain('real_time_events.ts')
+    expect(read('src/handlers/real_time_events.ts')).toBe("export const helper = 'kept'\n")
+    const barrel = read('src/handlers/index.ts').split('\n').filter(Boolean)
+    expect(barrel).toHaveLength(new Set(barrel).size)
+    expect(barrel).toContain("export * from './realTimeEvents'")
+    expect(barrel).not.toContain("export * from './real_time_events'")
+  })
+
   it('regenerates a file renamed by hand in place', async () => {
     await generate({ input: 'kebab.yaml', mode: 'contract', template: {} })
     fs.renameSync('src/handlers/real-time-events.ts', 'src/handlers/RealTime_Events.ts')
