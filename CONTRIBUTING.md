@@ -73,7 +73,7 @@ The workflows and the Issue loop rely on settings that live outside the reposito
 - **Pull requests**: squash merging only (merge commits and rebase merging off), the default squash commit message set to "Pull request title and description", and "Automatically delete head branches" on. The squash commit then carries the PR title whatever the branch's commits say, so the title alone decides the release.
 - **Actions → General → Workflow permissions**: "Read repository contents and packages permissions", with "Allow GitHub Actions to create and approve pull requests" on, so the Release PR workflow can open and merge the bump pull request.
 - **Environments → `release`**: deployments limited to the `main` branch. npm Trusted Publishing trusts `release.yml` in this environment, so no other branch can publish.
-- **Labels**: `autorelease: pending` and `autorelease: tagged` for release-please, and `claude` to hand an issue to the Issue loop.
+- **Labels**: `autorelease: pending` and `autorelease: tagged` for release-please, and `question` for an issue that waits on the owner, which the Issue loop skips.
 
 ## License
 
