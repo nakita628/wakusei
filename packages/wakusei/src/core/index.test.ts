@@ -505,7 +505,7 @@ export const getRealTimeEvents = os
       'kebab.yaml',
       KEBAB_SPEC.replace(
         'paths:\n',
-        'paths:\n  /Index:\n    get:\n      responses:\n        "200":\n          description: OK\n  /ユーザー:\n    get:\n      responses:\n        "200":\n          description: OK\n  /café:\n    get:\n      responses:\n        "200":\n          description: OK\n',
+        'paths:\n  /Index:\n    get:\n      responses:\n        "200":\n          description: OK\n  /ユーザー:\n    get:\n      responses:\n        "200":\n          description: OK\n  /café:\n    get:\n      responses:\n        "200":\n          description: OK\n  /नमस्ते:\n    get:\n      responses:\n        "200":\n          description: OK\n',
       ),
     )
     await generate({ input: 'kebab.yaml' })
@@ -516,6 +516,7 @@ export const getRealTimeEvents = os
       'real-time-events.ts',
       'user-api-keys.ts',
       'user-profiles.ts',
+      'नमस्ते.ts',
       'ユーザー.ts',
     ])
     expect(read('src/handlers/index.ts')).toContain("export * from './index-resource'")
@@ -538,12 +539,35 @@ export const getRealTimeEvents = os
     const files = listFiles('src/handlers')
     expect(files).toContain('ab_c.ts')
     expect(files).toContain('a_bc.ts')
+    expect(read('src/handlers/ab_c.ts')).toContain("path: '/ab_c'")
+    expect(read('src/handlers/ab_c.ts')).not.toContain("path: '/a_bc'")
+    expect(read('src/handlers/a_bc.ts')).toContain("path: '/a_bc'")
     expect(files).toContain('real_time_events.ts')
     expect(read('src/handlers/real_time_events.ts')).toBe("export const helper = 'kept'\n")
     const barrel = read('src/handlers/index.ts').split('\n').filter(Boolean)
     expect(barrel).toHaveLength(new Set(barrel).size)
     expect(barrel).toContain("export * from './realTimeEvents'")
     expect(barrel).not.toContain("export * from './real_time_events'")
+  })
+
+  it('gives a file that differs only in case to its own resource first', async () => {
+    fs.writeFileSync(
+      'kebab.yaml',
+      KEBAB_SPEC.replace(
+        'paths:\n',
+        'paths:\n  /a_bc:\n    get:\n      responses:\n        "200":\n          description: OK\n  /ABC:\n    get:\n      responses:\n        "200":\n          description: OK\n  /Index:\n    get:\n      responses:\n        "200":\n          description: OK\n',
+      ),
+    )
+    fs.mkdirSync('src/handlers', { recursive: true })
+    fs.writeFileSync('src/handlers/ABC.ts', "export const helper = 'kept ABC'\n")
+    fs.writeFileSync('src/handlers/Index.ts', "export const helper2 = 'kept Index'\n")
+    await generate({ input: 'kebab.yaml' })
+    const files = listFiles('src/handlers')
+    expect(files).toContain('a-bc.ts')
+    expect(files).not.toContain('abc.ts')
+    expect(files).not.toContain('index-resource.ts')
+    expect(read('src/handlers/ABC.ts')).toContain("path: '/ABC'")
+    expect(read('src/handlers/Index.ts')).toContain("path: '/Index'")
   })
 
   it('regenerates a file renamed by hand in place', async () => {

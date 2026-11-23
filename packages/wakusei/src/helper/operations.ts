@@ -145,17 +145,18 @@ export function makeOperations(openapi: OpenAPI) {
 
 /**
  * The first segment of a path in kebab case, the base name of its handler file: every run of
- * what is no letter or digit (in any script) is a word break, and so is a change from lower to
+ * what is no letter, mark or digit (in any script, read as NFC) is a word break, and so is a change from lower to
  * upper case, a run of capitals followed by a lowercase letter ending before its last capital.
  * `/realTimeEvents` → `real-time-events`, `/user_profiles` → `user-profiles`,
  * `/userAPIKeys` → `user-api-keys`, `/ユーザー` → `ユーザー`; a path that starts with a parameter (or
  * `/`) → `root`. `index` is the barrel, so a resource of that name → `index-resource`.
  */
-function makeResourceName(path: string) {
+export function makeResourceName(path: string) {
   const first = path.split('/').find(Boolean)
   if (!first || first.startsWith('{')) return 'root'
   const name = first
-    .replaceAll(/[^\p{L}\p{N}]+/gu, '-')
+    .normalize('NFC')
+    .replaceAll(/[^\p{L}\p{M}\p{N}]+/gu, '-')
     .replaceAll(/([\p{Ll}\p{N}])(\p{Lu})/gu, '$1-$2')
     .replaceAll(/(\p{Lu})(\p{Lu}\p{Ll})/gu, '$1-$2')
     .replaceAll(/^-+|-+$/gu, '')

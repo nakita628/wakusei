@@ -32,3 +32,4 @@ voidzero
 wakusei
 zizmor
 zizmorcore
+नमस्ते

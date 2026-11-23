@@ -16,7 +16,7 @@ import type { ImportEntry } from '../helper/imports.js'
 import { withImports } from '../helper/imports.js'
 import { makeLibraryImports } from '../helper/library.js'
 import type { OperationInfo } from '../helper/operations.js'
-import { makeOperationGroups, makeOperations } from '../helper/operations.js'
+import { makeOperationGroups, makeOperations, makeResourceName } from '../helper/operations.js'
 import { mergeProcedureFile } from '../merge/index.js'
 import type { Layout, WakuseiConfig } from './layout.js'
 import { makeRelativeSpecifier, makeSchemasSpecifier, schemasExportTypes } from './layout.js'
@@ -42,43 +42,60 @@ function makeSchemaImports(
     .map((name) => ({ name, from }))
 }
 
-/** A handler file name with case and every character that is no letter or digit ignored. */
+/** A handler file name (as NFC) with case and every character that is no letter, mark or digit ignored. */
 function makeFileKey(file: string) {
   return path
     .basename(file, '.ts')
-    .replaceAll(/[^\p{L}\p{N}]/gu, '')
+    .normalize('NFC')
+    .replaceAll(/[^\p{L}\p{M}\p{N}]/gu, '')
     .toLowerCase()
 }
 
-/**
- * The file a resource group is written to: the expected `<name>.ts` when it exists, else an
- * existing file that differs from it only in case, `-` and `_` (`realTimeEvents.ts` or
- * `real_time_events.ts` for `real-time-events.ts`) and is not taken by another group, else the
- * expected name. A project whose files were written under another name keeps them; nothing is
- * renamed.
- */
-function resolveHandlerFileName(
-  name: string,
-  existing: readonly string[],
-  taken: ReadonlySet<string>,
-) {
-  const expected = `${name}.ts`
-  if (existing.includes(expected)) return expected
-  const key = makeFileKey(expected)
-  return existing.find((file) => !taken.has(file) && makeFileKey(file) === key) ?? expected
+/** A file name as a case-insensitive filesystem compares it. */
+function fold(file: string) {
+  return file.normalize('NFC').toLowerCase()
 }
 
-/** Each group paired with its file, no existing file handed to two groups. */
+/** The resource an existing handler file was written for, read from its base name. */
+function makeFileResource(file: string) {
+  return makeResourceName(`/${path.basename(file, '.ts')}`)
+}
+
+/**
+ * Each group paired with its file, no existing file (compared without case, as on a
+ * case-insensitive filesystem) handed to two groups. Every group first takes a file named
+ * `<name>.ts` in any case, then a file whose base name reads as the same resource
+ * (`realTimeEvents.ts` or `real_time_events.ts` for `real-time-events`, `Index.ts` for
+ * `index-resource`), then a file that differs only in case and separators; otherwise the
+ * expected `<name>.ts` is written. A project whose files were written under another name keeps
+ * them; nothing is renamed.
+ */
 function resolveHandlerFiles(
   groups: ReadonlyMap<string, readonly OperationInfo[]>,
   existing: readonly string[],
 ) {
-  const taken = new Set([...groups.keys()].map((name) => `${name}.ts`))
-  return [...groups].map(([name, operations]) => {
-    const file = resolveHandlerFileName(name, existing, taken)
-    taken.add(file)
-    return [file, operations] as const
-  })
+  const names = [...groups.keys()]
+  const taken = new Set(names.map((name) => fold(`${name}.ts`)))
+  const resolved = new Map<string, string>()
+  const passes: readonly ((name: string, file: string) => boolean)[] = [
+    (name, file) => fold(file) === fold(`${name}.ts`),
+    (name, file) => makeFileResource(file) === name,
+    (name, file) => makeFileKey(file) === makeFileKey(name),
+  ]
+  for (const [index, matches] of passes.entries()) {
+    for (const name of names) {
+      if (resolved.has(name)) continue
+      const file = existing.find(
+        (entry) => (index === 0 || !taken.has(fold(entry))) && matches(name, entry),
+      )
+      if (file === undefined) continue
+      resolved.set(name, file)
+      taken.add(fold(file))
+    }
+  }
+  return [...groups].map(
+    ([name, operations]) => [resolved.get(name) ?? `${name}.ts`, operations] as const,
+  )
 }
 
 /**
@@ -127,9 +144,16 @@ function writeHandlerFiles(
     }
     // A second file of a group (`userProfiles.ts` beside `user_profiles.ts`) may still hold
     // hand-written code, so only a file no group's name matches is deleted.
-    const keys = new Set([...groups.keys()].map(makeFileKey))
+    const names = new Set(groups.keys())
+    const keys = new Set([...names].map(makeFileKey))
+    const written = new Set(files.map(([file]) => file))
     yield* Effect.forEach(
-      existing.filter((entry) => !keys.has(makeFileKey(entry))),
+      existing.filter(
+        (entry) =>
+          !written.has(entry) &&
+          !names.has(makeFileResource(entry)) &&
+          !keys.has(makeFileKey(entry)),
+      ),
       (entry) => unlink(path.join(dir, entry)),
       { concurrency: EMIT_CONCURRENCY, discard: true },
     )
