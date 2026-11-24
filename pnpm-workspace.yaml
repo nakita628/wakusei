@@ -19,3 +19,8 @@ allowBuilds:
 # pinned one. Keep the whole Effect set on the release schema-truth uses.
 overrides:
   '@effect/platform-node-shared': 4.1.2
+# oas-truth and schema-truth come from nakita628/truth; take a new release of them without
+# waiting out pnpm's minimum release age.
+minimumReleaseAgeExclude:
+  - oas-truth@0.8.1
+  - schema-truth@0.8.16

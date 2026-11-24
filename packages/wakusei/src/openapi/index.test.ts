@@ -21,6 +21,14 @@ describe('parseOpenAPI', () => {
     })
   })
 
+  it('rejects an input that is neither an OpenAPI nor a TypeSpec document', async () => {
+    const error = await Effect.runPromise(Effect.flip(parseOpenAPI('openapi.txt')))
+    expect(error).toBeInstanceOf(OpenAPIError)
+    expect(error.message).toBe(
+      'Not an OpenAPI (.yaml / .yml / .json), TypeSpec (.tsp) or http(s) input: openapi.txt',
+    )
+  })
+
   it('turns an unreadable document into OpenAPIError', async () => {
     const error = await Effect.runPromise(Effect.flip(parseOpenAPI('/nonexistent/openapi.yaml')))
     expect(error).toBeInstanceOf(OpenAPIError)
