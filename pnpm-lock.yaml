@@ -178,7 +178,7 @@ catalogs:
       version: 1.18.0
 
 overrides:
-  '@effect/platform-node-shared': 4.1.2
+  '@effect/platform-node-shared': 4.1.5
 
 importers:
 
@@ -283,11 +283,11 @@ importers:
   packages/wakusei:
     dependencies:
       '@effect/platform-node':
-        specifier: 4.1.2
-        version: 4.1.2(effect@4.1.2)(redis@6.4.0)
+        specifier: 4.1.5
+        version: 4.1.5(effect@4.1.5)(redis@6.4.0)
       effect:
-        specifier: 4.1.2
-        version: 4.1.2
+        specifier: 4.1.5
+        version: 4.1.5
       oas-truth:
         specifier: ^0.8.1
         version: 0.8.2(@apidevtools/swagger-parser@13.1.0(openapi-types@12.1.3))(@types/json-schema@7.0.15)(@typespec/compiler@1.18.0(@types/node@26.6.11))(@typespec/openapi3@1.18.0(@typespec/compiler@1.18.0(@types/node@26.6.11))(@typespec/http@1.18.0(@typespec/compiler@1.18.0(@types/node@26.6.11)))(@typespec/openapi@1.18.0(@typespec/compiler@1.18.0(@types/node@26.6.11))(@typespec/http@1.18.0(@typespec/compiler@1.18.0(@types/node@26.6.11)))))(redis@6.4.0)(vite-plus@1.7.0(@types/node@26.6.11)(@vitest/browser-preview@5.1.0)(@vitest/ui@5.1.0)(esbuild@0.28.2)(tsx@4.23.15)(typescript@7.0.2)(vite@8.4.0(@types/node@26.6.11)(esbuild@0.28.2)(tsx@4.23.15)(yaml@2.9.1))(vitest@5.1.0)(yaml@2.9.1))
@@ -634,17 +634,24 @@ packages:
     resolution: {integrity: sha512-Uu02E4n52vivBApl8kLh16+9F6VMNIZheU3G44yg7yZoXyh1R7qtwvyTWtvBfuV091ENSh85EirI4ws4kmJudg==}
     engines: {node: '>=22.18.0'}
 
-  '@effect/platform-node-shared@4.1.2':
-    resolution: {integrity: sha512-wSwl9A/G1hcVvF8nLI+YfB3EyOIDvWS6+lsTZBkmgDnPBL7m8YWZF+1HD+mdEsb52SUGfukip46Q3gRwSdk3QA==}
+  '@effect/platform-node-shared@4.1.5':
+    resolution: {integrity: sha512-JzlrYe4uKaBFTWihBRXo2pDjkUVB39kQpKdGfXdbp7Co5sKT8hbcjOmdB5pg/WOYESdGTddd3fxD4lwlZELbZQ==}
     engines: {node: '>=22.19.0'}
     peerDependencies:
-      effect: ^4.1.2
+      effect: ^4.1.5
 
   '@effect/platform-node@4.1.2':
     resolution: {integrity: sha512-ye0UjxORdd5Qu3paZ1LljgGOALWHt7muP9VTpjUSCNfcesiB/Hm7wPJIvZeu4gnwpTe5BtEnO1VHngWqjJp8mA==}
     engines: {node: '>=22.19.0'}
     peerDependencies:
       effect: ^4.1.2
+      redis: '>=5.1.0 <7.0.0'
+
+  '@effect/platform-node@4.1.5':
+    resolution: {integrity: sha512-tFnRvxF9EKc3oU17sDHj1JeLP+TL/IkaOEl3IUk2EjgMS0x7AWs0ioUXjdNKLb3Z1LdjVfMf/DxsNh9PW5FFAg==}
+    engines: {node: '>=22.19.0'}
+    peerDependencies:
+      effect: ^4.1.5
       redis: '>=5.1.0 <7.0.0'
 
   '@esbuild/aix-ppc64@0.28.2':
@@ -2488,6 +2495,9 @@ packages:
   effect@4.1.2:
     resolution: {integrity: sha512-d3Oah1WyKxFLFh19yWheS5IXIVaITzxZ71JkE1rkUozq/6EcJSU5nPk5bF2QrSygZ3SQoiNQB8TsxFriyMeMaQ==}
 
+  effect@4.1.5:
+    resolution: {integrity: sha512-xyR20KhQI0vg2gD8ILUSQRTTESEYJ0JKdP+QD8J37xbwPTqXRxFM/l0+vUVD9fuSvoYruoTqyt33C4FZv1s4TQ==}
+
   emoji-regex@10.6.0:
     resolution: {integrity: sha512-toUI84YS5YmxW219erniWD0CIVOo46xGKColeNQRgOzDorgBi1v4D71/OFzgD9GO2UGKIv1C3Sp8DAn0+j5w7A==}
 
@@ -3771,7 +3781,7 @@ snapshots:
 
   '@cspell/url@10.5.2': {}
 
-  '@effect/platform-node-shared@4.1.2(effect@4.1.2)':
+  '@effect/platform-node-shared@4.1.5(effect@4.1.2)':
     dependencies:
       '@types/ws': 8.18.2
       effect: 4.1.2
@@ -3780,10 +3790,29 @@ snapshots:
       - bufferutil
       - utf-8-validate
 
+  '@effect/platform-node-shared@4.1.5(effect@4.1.5)':
+    dependencies:
+      '@types/ws': 8.18.2
+      effect: 4.1.5
+      ws: 8.23.0
+    transitivePeerDependencies:
+      - bufferutil
+      - utf-8-validate
+
   '@effect/platform-node@4.1.2(effect@4.1.2)(redis@6.4.0)':
     dependencies:
-      '@effect/platform-node-shared': 4.1.2(effect@4.1.2)
+      '@effect/platform-node-shared': 4.1.5(effect@4.1.2)
       effect: 4.1.2
+      redis: 6.4.0
+      undici: 8.13.1
+    transitivePeerDependencies:
+      - bufferutil
+      - utf-8-validate
+
+  '@effect/platform-node@4.1.5(effect@4.1.5)(redis@6.4.0)':
+    dependencies:
+      '@effect/platform-node-shared': 4.1.5(effect@4.1.5)
+      effect: 4.1.5
       redis: 6.4.0
       undici: 8.13.1
     transitivePeerDependencies:
@@ -5248,6 +5277,8 @@ snapshots:
       version-range: 4.15.0
 
   effect@4.1.2: {}
+
+  effect@4.1.5: {}
 
   emoji-regex@10.6.0: {}
 
