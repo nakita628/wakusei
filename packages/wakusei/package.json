@@ -54,6 +54,6 @@
     "oxfmt": "^0.79.0"
   },
   "devDependencies": {
-    "@types/node": "^26.6.6"
+    "@types/node": "26.6.11"
   }
 }

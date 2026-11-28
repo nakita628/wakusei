@@ -299,7 +299,7 @@ importers:
         version: 0.79.0(vite-plus@1.7.0(@types/node@26.6.11)(@vitest/browser-preview@5.1.0)(@vitest/ui@5.1.0)(esbuild@0.28.2)(tsx@4.23.15)(typescript@7.0.2)(vite@8.4.0(@types/node@26.6.11)(esbuild@0.28.2)(tsx@4.23.15)(yaml@2.9.1))(vitest@5.1.0)(yaml@2.9.1))
     devDependencies:
       '@types/node':
-        specifier: ^26.6.6
+        specifier: 26.6.11
         version: 26.6.11
 
   test:
